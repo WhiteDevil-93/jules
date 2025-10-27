@@ -88,6 +88,17 @@ interface SessionState {
 }
 
 let previousSessionStates: Map<string, SessionState> = new Map();
+
+function loadPreviousSessionStates(context: vscode.ExtensionContext): void {
+  const storedStates = context.globalState.get<{ [key: string]: SessionState }>(
+    "jules.previousSessionStates",
+    {}
+  );
+  previousSessionStates = new Map(Object.entries(storedStates));
+  console.log(
+    `Jules: Loaded ${previousSessionStates.size} previous session states from global state.`
+  );
+}
 let autoRefreshInterval: NodeJS.Timeout | undefined;
 
 // Helper functions
@@ -191,7 +202,10 @@ async function notifyPlanAwaitingApproval(
   }
 }
 
-function updatePreviousStates(currentSessions: Session[]): void {
+async function updatePreviousStates(
+  currentSessions: Session[],
+  context: vscode.ExtensionContext
+): Promise<void> {
   for (const session of currentSessions) {
     previousSessionStates.set(session.name, {
       name: session.name,
@@ -200,6 +214,15 @@ function updatePreviousStates(currentSessions: Session[]): void {
       outputs: session.outputs,
     });
   }
+
+  // Persist the updated states to global state
+  await context.globalState.update(
+    "jules.previousSessionStates",
+    Object.fromEntries(previousSessionStates)
+  );
+  console.log(
+    `Jules: Saved ${previousSessionStates.size} session states to global state.`
+  );
 }
 
 function startAutoRefresh(
@@ -607,7 +630,7 @@ class JulesSessionsProvider
       }
 
       // --- Update previous states after all checks ---
-      updatePreviousStates(allSessionsMapped);
+      await updatePreviousStates(allSessionsMapped, this.context);
 
       const filteredSessions = allSessionsMapped.filter(
         (session) =>
@@ -807,6 +830,8 @@ function updateStatusBar(
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
   console.log("Jules Extension is now active");
+
+  loadPreviousSessionStates(context);
 
   const sessionsProvider = new JulesSessionsProvider(context);
   const sessionsTreeView = vscode.window.createTreeView("julesSessionsView", {
