@@ -250,7 +250,7 @@ function startAutoRefresh(
 
   autoRefreshInterval = setInterval(() => {
     console.log("Jules: Auto-refresh triggered");
-    sessionsProvider.refresh();
+    sessionsProvider.refresh(true); // Pass true for background refresh
   }, interval);
 }
 
@@ -529,44 +529,28 @@ class JulesSessionsProvider
     vscode.TreeItem | undefined | null | void
   > = this._onDidChangeTreeData.event;
 
+  private sessionsCache: Session[] = [];
+  private isFetching = false;
+
   constructor(private context: vscode.ExtensionContext) {}
 
-  refresh(): void {
-    console.log("Jules: refresh() called, firing event.");
-    this._onDidChangeTreeData.fire();
-  }
-
-  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
-    return element;
-  }
-
-  async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
-    if (element) {
-      return [];
+  private async fetchAndProcessSessions(
+    isBackground: boolean = false
+  ): Promise<void> {
+    if (this.isFetching) {
+      console.log("Jules: Fetch already in progress. Skipping.");
+      return;
     }
-
-    const selectedSource =
-      this.context.globalState.get<Source>("selected-source");
-
-    if (!selectedSource) {
-      const item = new vscode.TreeItem(
-        "ℹ️ No source selected. Click to select a source."
-      );
-      item.command = {
-        command: "jules-extension.listSources",
-        title: "Select Source",
-      };
-      item.contextValue = "no-source";
-      return [item];
-    }
-
-    const apiKey = await getStoredApiKey(this.context);
-    if (!apiKey) {
-      return [];
-    }
+    this.isFetching = true;
+    console.log("Jules: Starting to fetch and process sessions...");
 
     try {
-      console.log("Jules: Fetching sessions in getChildren...");
+      const apiKey = await getStoredApiKey(this.context);
+      if (!apiKey) {
+        this.sessionsCache = [];
+        return;
+      }
+
       const response = await fetch(`${JULES_API_BASE_URL}/sessions`, {
         method: "GET",
         headers: {
@@ -578,14 +562,18 @@ class JulesSessionsProvider
       if (!response.ok) {
         const errorMsg = `Failed to fetch sessions: ${response.status} ${response.statusText}`;
         console.error(`Jules: ${errorMsg}`);
-        vscode.window.showErrorMessage(errorMsg);
-        return [];
+        if (!isBackground) {
+          vscode.window.showErrorMessage(errorMsg);
+        }
+        this.sessionsCache = [];
+        return;
       }
 
       const data = (await response.json()) as SessionsResponse;
       if (!data.sessions || !Array.isArray(data.sessions)) {
         console.log("Jules: No sessions found or invalid response format");
-        return [new vscode.TreeItem("No sessions found for this source.")];
+        this.sessionsCache = [];
+        return;
       }
 
       console.log(`Jules: Found ${data.sessions.length} total sessions`);
@@ -632,25 +620,70 @@ class JulesSessionsProvider
       // --- Update previous states after all checks ---
       await updatePreviousStates(allSessionsMapped, this.context);
 
-      const filteredSessions = allSessionsMapped.filter(
-        (session) =>
-          (session as any).sourceContext?.source === selectedSource.name
-      );
-      console.log(
-        `Jules: Found ${filteredSessions.length} sessions for the selected source`
-      );
-
-      if (filteredSessions.length === 0) {
-        return [new vscode.TreeItem("No sessions found for this source.")];
-      }
-
-      return filteredSessions.map((session) => new SessionTreeItem(session));
+      // --- Update the cache ---
+      this.sessionsCache = allSessionsMapped;
     } catch (error) {
-      const errorMsg = `Failed to fetch sessions: ${error}`;
-      console.error("Jules: Error fetching sessions in getChildren:", error);
-      vscode.window.showErrorMessage(errorMsg);
+      console.error("Jules: Error during fetchAndProcessSessions:", error);
+      this.sessionsCache = []; // Clear cache on error
+    } finally {
+      this.isFetching = false;
+      console.log("Jules: Finished fetching and processing sessions.");
+      // Fire the event to refresh the view with the new data
+      this._onDidChangeTreeData.fire();
+    }
+  }
+
+  async refresh(isBackground: boolean = false): Promise<void> {
+    console.log(
+      `Jules: refresh() called (isBackground: ${isBackground}), starting fetch.`
+    );
+    await this.fetchAndProcessSessions(isBackground);
+  }
+
+  getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
+    return element;
+  }
+
+  async getChildren(element?: vscode.TreeItem): Promise<vscode.TreeItem[]> {
+    if (element) {
       return [];
     }
+
+    // If the cache is empty, it might be the first load.
+    if (this.sessionsCache.length === 0 && !this.isFetching) {
+      await this.fetchAndProcessSessions();
+    }
+
+    const selectedSource =
+      this.context.globalState.get<Source>("selected-source");
+
+    if (!selectedSource) {
+      const item = new vscode.TreeItem(
+        "ℹ️ No source selected. Click to select a source."
+      );
+      item.command = {
+        command: "jules-extension.listSources",
+        title: "Select Source",
+      };
+      item.contextValue = "no-source";
+      return [item];
+    }
+
+    // Now, use the cache to build the tree
+    const filteredSessions = this.sessionsCache.filter(
+      (session) =>
+        (session as any).sourceContext?.source === selectedSource.name
+    );
+
+    console.log(
+      `Jules: Found ${filteredSessions.length} sessions for the selected source from cache`
+    );
+
+    if (filteredSessions.length === 0) {
+      return [new vscode.TreeItem("No sessions found for this source.")];
+    }
+
+    return filteredSessions.map((session) => new SessionTreeItem(session));
   }
 }
 
@@ -1082,7 +1115,7 @@ export function activate(context: vscode.ExtensionContext) {
   const refreshSessionsDisposable = vscode.commands.registerCommand(
     "jules-extension.refreshSessions",
     () => {
-      sessionsProvider.refresh();
+      sessionsProvider.refresh(false); // Pass false for manual refresh
     }
   );
 
