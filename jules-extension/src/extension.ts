@@ -538,7 +538,10 @@ class JulesSessionsProvider
       if (!response.ok) {
         const errorMsg = `Failed to fetch sessions: ${response.status} ${response.statusText}`;
         console.error(`Jules: ${errorMsg}`);
-        // Do not show error message for background fetches, but clear the cache
+        // Show error message to user if not background fetch
+        if (!isBackground) {
+          vscode.window.showErrorMessage(errorMsg);
+        }
         this.sessionsCache = [];
         return;
       }
