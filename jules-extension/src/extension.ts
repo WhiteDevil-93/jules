@@ -589,8 +589,7 @@ function getActivityIcon(activity: Activity): string {
 }
 
 class JulesSessionsProvider
-  implements vscode.TreeDataProvider<vscode.TreeItem>
-{
+  implements vscode.TreeDataProvider<vscode.TreeItem> {
   private _onDidChangeTreeData: vscode.EventEmitter<
     vscode.TreeItem | undefined | null | void
   > = new vscode.EventEmitter<vscode.TreeItem | undefined | null | void>();
@@ -601,7 +600,7 @@ class JulesSessionsProvider
   private sessionsCache: Session[] = [];
   private isFetching = false;
 
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(private context: vscode.ExtensionContext) { }
 
   private async fetchAndProcessSessions(
     isBackground: boolean = false
@@ -1191,8 +1190,7 @@ export function activate(context: vscode.ExtensionContext) {
         );
       } catch (error) {
         vscode.window.showErrorMessage(
-          `Failed to create session: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `Failed to create session: ${error instanceof Error ? error.message : "Unknown error"
           }`
         );
       }
@@ -1291,18 +1289,16 @@ export function activate(context: vscode.ExtensionContext) {
             const timestamp = new Date(activity.createTime).toLocaleString();
             let message = "";
             if (activity.planGenerated) {
-              message = `Plan generated: ${
-                activity.planGenerated.plan?.title || "Plan"
-              }`;
+              message = `Plan generated: ${activity.planGenerated.plan?.title || "Plan"
+                }`;
               planDetected = true;
             } else if (activity.planApproved) {
               message = `Plan approved: ${activity.planApproved.planId}`;
             } else if (activity.progressUpdated) {
-              message = `Progress: ${activity.progressUpdated.title}${
-                activity.progressUpdated.description
+              message = `Progress: ${activity.progressUpdated.title}${activity.progressUpdated.description
                   ? " - " + activity.progressUpdated.description
                   : ""
-              }`;
+                }`;
             } else if (activity.sessionCompleted) {
               message = "Session completed";
             } else {
@@ -1455,8 +1451,7 @@ export function activate(context: vscode.ExtensionContext) {
       } catch (error) {
         console.error("Jules: Error setting GitHub Token:", error);
         vscode.window.showErrorMessage(
-          `GitHub Token の保存に失敗しました: ${
-            error instanceof Error ? error.message : "Unknown error"
+          `GitHub Token の保存に失敗しました: ${error instanceof Error ? error.message : "Unknown error"
           }`
         );
       }
