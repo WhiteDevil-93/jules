@@ -63,6 +63,17 @@
           "default": "",
           "description": "A custom prompt to automatically prepend to every message sent to Jules. This acts as a persistent instruction.",
           "markdownDescription": "Enter a custom prompt that will be automatically added to the beginning of every message you send to Jules. This is useful for providing persistent instructions or context.\n\n**Example:**\n`Always reply in Japanese.`"
+        },
+        "jules-extension.hideClosedPRSessions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically hide sessions with closed or merged pull requests from the session list"
+        },
+        "jules-extension.githubToken": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Personal Access Token for checking PR status (optional, uses public API if not set)",
+          "markdownDescription": "GitHub Personal Access Token for checking PR status. Without a token, only public repositories can be checked and rate limits are lower.\n\n**To create a token:**\n1. Go to GitHub Settings > Developer settings > Personal access tokens\n2. Generate new token with `repo` scope\n3. Paste the token here"
         }
       }
     },
@@ -115,6 +126,18 @@
         "title": "Open Jules Settings",
         "category": "Jules",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "jules-extension.deleteSession",
+        "title": "Delete Session from Local Cache",
+        "category": "Jules",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "jules-extension.setGithubToken",
+        "title": "Set GitHub Token (for PR Status)",
+        "category": "Jules",
+        "icon": "$(github)"
       }
     ],
     "views": {
@@ -160,6 +183,11 @@
           "command": "jules-extension.sendMessage",
           "when": "view == julesSessionsView && viewItem == jules-session",
           "group": "inline"
+        },
+        {
+          "command": "jules-extension.deleteSession",
+          "when": "view == julesSessionsView && viewItem == jules-session",
+          "group": "management"
         }
       ]
     }
