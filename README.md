@@ -80,6 +80,26 @@ To use the Jules Extension, you need a Jules API key. Follow these steps to get 
 
 > **Important:** Treat your API key like a password. Do not share it publicly or commit it to version control.
 
+## Authentication
+
+### OAuth Sign-in (Recommended) ✅
+
+Use the `Jules: Sign in to GitHub` command.
+
+**How to use:**
+
+1. Command Palette (`Cmd+Shift+P`)
+2. Run `Jules: Sign in to GitHub`
+3. Authorize in browser
+
+---
+
+### GitHub PAT (Deprecated) ⚠️
+
+**PAT support is deprecated and will be removed in a future version.**
+
+Please migrate to OAuth sign-in.
+
 ## ⚙️ Extension Settings
 
 This extension contributes the following settings:

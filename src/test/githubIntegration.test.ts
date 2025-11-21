@@ -183,6 +183,8 @@ suite('GitHub Integration Tests', () => {
         // 実際のコマンド実行をテスト
         showInputBoxStub.resolves('invalid_pat_format');
 
+        // simulate user choosing "Continue with PAT" on deprecation warning
+        showWarningMessageStub.resolves('Continue with PAT');
         // setGitHubPatコマンドを呼び出し
         await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 
@@ -197,6 +199,8 @@ suite('GitHub Integration Tests', () => {
         const validPat = 'ghp_' + 'a'.repeat(36);
         showInputBoxStub.resolves(validPat);
 
+        // simulate user choosing "Continue with PAT" on deprecation warning
+        showWarningMessageStub.resolves('Continue with PAT');
         // setGitHubPatコマンドを呼び出し
         await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 

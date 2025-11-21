@@ -1791,8 +1791,23 @@ export function activate(context: vscode.ExtensionContext) {
   const setGitHubPatDisposable = vscode.commands.registerCommand(
     "jules-extension.setGitHubPat",
     async () => {
+      // Deprecation warning — suggest OAuth sign-in instead of PAT
+      const proceed = await vscode.window.showWarningMessage(
+        'GitHub PAT is deprecated and will be removed in a future version.\n\nPlease use OAuth sign-in instead.',
+        'Use OAuth (Recommended)',
+        'Continue with PAT'
+      );
+
+      if (proceed === 'Use OAuth (Recommended)') {
+        await vscode.commands.executeCommand('jules-extension.signInGitHub');
+        return;
+      }
+
+      if (proceed !== 'Continue with PAT') {
+        return; // user cancelled
+      }
       const pat = await vscode.window.showInputBox({
-        prompt: 'Enter your GitHub Personal Access Token (with "repo" scope)',
+        prompt: '[DEPRECATED] Enter GitHub Personal Access Token',
         password: true,
         placeHolder: 'Enter your GitHub PAT',
         ignoreFocusOut: true,
@@ -1819,8 +1834,8 @@ export function activate(context: vscode.ExtensionContext) {
         const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
         if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
           await context.secrets.store('jules-github-pat', pat);
-          vscode.window.showInformationMessage('GitHub PAT saved successfully');
-          logChannel.appendLine('[Jules] GitHub PAT saved');
+          vscode.window.showInformationMessage('GitHub PAT saved (deprecated)');
+          logChannel.appendLine('[Jules] GitHub PAT saved (deprecated)');
         } else {
           vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
         }
