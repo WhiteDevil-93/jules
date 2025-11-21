@@ -132,7 +132,9 @@ async function getGitHubUrl(): Promise<string | undefined> {
     if (!repository) {
       throw new Error('No Git repository found');
     }
-    const remote = repository.state.remotes.find((r: any) => r.name === 'origin');
+    const remote = repository.state.remotes.find(
+      (r: { name: string; fetchUrl?: string; pushUrl?: string }) => r.name === 'origin'
+    );
     if (!remote) {
       throw new Error('No origin remote found');
     }
@@ -141,6 +143,35 @@ async function getGitHubUrl(): Promise<string | undefined> {
     console.error('Failed to get GitHub URL:', error);
     return undefined;
   }
+}
+
+/**
+ * リモートブランチ作成に必要なリポジトリ情報を取得
+ */
+async function getRepoInfoForBranchCreation(
+  context: vscode.ExtensionContext
+): Promise<{ pat: string; owner: string; repo: string } | null> {
+  const pat = await context.secrets.get("jules-github-pat");
+  if (!pat) {
+    vscode.window.showErrorMessage(
+      "GitHub PAT is not set. Please run 'Jules: Set GitHub PAT' command first."
+    );
+    return null;
+  }
+
+  const gitHubUrl = await getGitHubUrl();
+  if (!gitHubUrl) {
+    vscode.window.showErrorMessage("Unable to determine GitHub repository URL.");
+    return null;
+  }
+
+  const repoInfo = parseGitHubUrl(gitHubUrl);
+  if (!repoInfo) {
+    vscode.window.showErrorMessage("Invalid GitHub repository URL.");
+    return null;
+  }
+
+  return { pat, ...repoInfo };
 }
 
 export function buildFinalPrompt(userPrompt: string): string {
@@ -1199,24 +1230,9 @@ export function activate(context: vscode.ExtensionContext) {
           );
 
           if (action === 'Create Remote Branch') {
-            // PATを取得
-            const pat = await context.secrets.get("jules-github-pat");
-            if (!pat) {
-              vscode.window.showErrorMessage("GitHub PAT is not set. Please run 'Jules: Set GitHub PAT' command first.");
-              return;
-            }
-
-            // GitHub URLを解析
-            const gitHubUrl = await getGitHubUrl();
-            if (!gitHubUrl) {
-              vscode.window.showErrorMessage("Unable to determine GitHub repository URL.");
-              return;
-            }
-
-            const repoInfo = parseGitHubUrl(gitHubUrl);
-            if (!repoInfo) {
-              vscode.window.showErrorMessage("Invalid GitHub repository URL.");
-              return;
+            const creationInfo = await getRepoInfoForBranchCreation(context);
+            if (!creationInfo) {
+              return; // エラーメッセージはヘルパー内で表示済み
             }
 
             // リモートブランチを作成
@@ -1229,7 +1245,12 @@ export function activate(context: vscode.ExtensionContext) {
                 },
                 async (progress) => {
                   progress.report({ increment: 0, message: "Initializing..." });
-                  await createRemoteBranch(pat, repoInfo.owner, repoInfo.repo, startingBranch);
+                  await createRemoteBranch(
+                    creationInfo.pat,
+                    creationInfo.owner,
+                    creationInfo.repo,
+                    startingBranch
+                  );
                   progress.report({ increment: 100, message: "Remote branch created!" });
                 }
               );
@@ -1597,45 +1618,34 @@ export function activate(context: vscode.ExtensionContext) {
   const setGitHubPatDisposable = vscode.commands.registerCommand(
     "jules-extension.setGitHubPat",
     async () => {
-      try {
-        const token = await vscode.window.showInputBox({
-          prompt: "Enter your GitHub Personal Access Token for automatic branch pushing",
-          password: true,
-          placeHolder: "ghp_xxxxxxxxxxxxxxxxxxxx",
-          ignoreFocusOut: true,
-        });
-
-        if (token === undefined) {
-          // User cancelled the input
-          console.log("Jules: GitHub PAT input cancelled by user");
-          return;
-        }
-
-        if (token === "") {
-          vscode.window.showWarningMessage("GitHub PAT is required. Cancelled.");
-          return;
-        }
-
-        // Validate token format
-        if (!token.startsWith("ghp_") && !token.startsWith("github_pat_")) {
-          const proceed = await vscode.window.showWarningMessage(
-            "The entered token doesn't appear to be a GitHub token format. Save anyway?",
-            { modal: true },
-            "Save",
-            "Cancel"
-          );
-          if (proceed !== "Save") {
-            return;
+      const pat = await vscode.window.showInputBox({
+        prompt: 'Enter your GitHub Personal Access Token (with "repo" scope)',
+        password: true,
+        placeHolder: 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+          if (!value || value.trim().length === 0) {
+            return 'PAT cannot be empty';
           }
-        }
 
-        await context.secrets.store("jules-github-pat", token);
-        vscode.window.showInformationMessage("GitHub PAT saved securely.");
-      } catch (error) {
-        console.error("Jules: Error setting GitHub PAT:", error);
-        vscode.window.showErrorMessage(
-          `Failed to save GitHub PAT: ${error instanceof Error ? error.message : "Unknown error"}`
-        );
+          // 厳格なフォーマットチェック
+          const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
+          const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
+
+          if (!ghpPattern.test(value) && !githubPatPattern.test(value)) {
+            return 'Invalid PAT format. Expected formats:\n' +
+              '- Classic: ghp_ followed by 36 characters\n' +
+              '- Fine-grained: github_pat_ followed by 82 characters';
+          }
+
+          return null;
+        }
+      });
+
+      if (pat) {
+        await context.secrets.store('jules-github-pat', pat);
+        vscode.window.showInformationMessage('GitHub PAT saved successfully');
+        logChannel.appendLine('[Jules] GitHub PAT saved');
       }
     }
   );
@@ -1661,3 +1671,4 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   stopAutoRefresh();
 }
+

@@ -7,6 +7,7 @@ suite('GitHub Integration Tests', () => {
     let secretsStub: sinon.SinonStubbedInstance<vscode.SecretStorage>;
     let showWarningMessageStub: sinon.SinonStub;
     let showErrorMessageStub: sinon.SinonStub;
+    let showInputBoxStub: sinon.SinonStub;
     let executeCommandStub: sinon.SinonStub;
 
     setup(() => {
@@ -22,6 +23,7 @@ suite('GitHub Integration Tests', () => {
 
         showWarningMessageStub = sandbox.stub(vscode.window, 'showWarningMessage');
         showErrorMessageStub = sandbox.stub(vscode.window, 'showErrorMessage');
+        showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
         executeCommandStub = sandbox.stub(vscode.commands, 'executeCommand');
     });
 
@@ -31,7 +33,7 @@ suite('GitHub Integration Tests', () => {
 
     test('Should show error when PAT is not set and user chooses Create Remote Branch', async () => {
         // PAT未設定
-        secretsStub.get.withArgs('github-pat').resolves(undefined);
+        secretsStub.get.withArgs('jules-github-pat').resolves(undefined);
 
         // ユーザーが "Create Remote Branch" を選択
         showWarningMessageStub.resolves('Create Remote Branch');
@@ -54,7 +56,7 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('github-pat');
+                const githubPat = await secretsStub.get('jules-github-pat');
 
                 if (!githubPat) {
                     const setPat = await vscode.window.showErrorMessage(
@@ -84,7 +86,7 @@ suite('GitHub Integration Tests', () => {
 
     test('Should cancel session creation when user clicks Cancel on PAT dialog', async () => {
         // PAT未設定
-        secretsStub.get.withArgs('github-pat').resolves(undefined);
+        secretsStub.get.withArgs('jules-github-pat').resolves(undefined);
 
         // ユーザーが "Create Remote Branch" を選択
         showWarningMessageStub.resolves('Create Remote Branch');
@@ -108,7 +110,7 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('github-pat');
+                const githubPat = await secretsStub.get('jules-github-pat');
 
                 if (!githubPat) {
                     const setPat = await vscode.window.showErrorMessage(
@@ -137,7 +139,7 @@ suite('GitHub Integration Tests', () => {
 
     test('Should proceed with branch creation when PAT is set', async () => {
         // PAT設定済み
-        secretsStub.get.withArgs('github-pat').resolves('ghp_test1234567890abcdef');
+        secretsStub.get.withArgs('jules-github-pat').resolves('ghp_test1234567890abcdef');
 
         // ユーザーが "Create Remote Branch" を選択
         showWarningMessageStub.resolves('Create Remote Branch');
@@ -158,7 +160,7 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('github-pat');
+                const githubPat = await secretsStub.get('jules-github-pat');
 
                 if (githubPat) {
                     proceedToCreation = true;
@@ -201,46 +203,30 @@ suite('GitHub Integration Tests', () => {
     });
 
     test('Should validate PAT format in Set GitHub PAT command', async () => {
-        const showInputBoxStub = sandbox.stub(vscode.window, 'showInputBox');
-
-        // 無効なPAT形式
+        // 実際のコマンド実行をテスト
         showInputBoxStub.resolves('invalid_pat_format');
 
-        // バリデーション関数をシミュレート
-        const validateInput = (value: string) => {
-            if (!value || value.trim().length === 0) {
-                return 'PAT cannot be empty';
-            }
-            if (!value.startsWith('ghp_') && !value.startsWith('github_pat_')) {
-                return 'Invalid PAT format. Should start with ghp_ or github_pat_';
-            }
-            return null;
-        };
+        // setGitHubPatコマンドを呼び出し
+        await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 
-        const validationResult = validateInput('invalid_pat_format');
+        // 検証：無効なPAT形式でエラーが表示される
+        assert.strictEqual(showInputBoxStub.called, true);
+        assert.strictEqual(showErrorMessageStub.called, true);
 
-        // 検証
-        assert.ok(validationResult);
-        assert.ok(validationResult.includes('Invalid PAT format'));
+        const errorMessage = showErrorMessageStub.getCall(0).args[0];
+        assert.ok(errorMessage.includes('Invalid PAT format'));
     });
 
-    test('Should accept valid PAT formats', async () => {
-        const validateInput = (value: string) => {
-            if (!value || value.trim().length === 0) {
-                return 'PAT cannot be empty';
-            }
-            if (!value.startsWith('ghp_') && !value.startsWith('github_pat_')) {
-                return 'Invalid PAT format. Should start with ghp_ or github_pat_';
-            }
-            return null;
-        };
+    test('Should accept valid PAT formats in Set GitHub PAT command', async () => {
+        // 有効なPAT形式でテスト
+        showInputBoxStub.resolves('ghp_1234567890abcdefghijklmnopqrstuvwxyz');
 
-        // 有効なPAT形式をテスト
-        const validPat1 = validateInput('ghp_1234567890abcdefghijklmnopqrstuvwxyz');
-        const validPat2 = validateInput('github_pat_1234567890abcdefghijklmnopqrstuvwxyz');
+        // setGitHubPatコマンドを呼び出し
+        await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 
-        // 検証
-        assert.strictEqual(validPat1, null);
-        assert.strictEqual(validPat2, null);
+        // 検証：有効なPATで保存される
+        assert.strictEqual(showInputBoxStub.called, true);
+        assert.strictEqual(secretsStub.store.calledWith('jules-github-pat', 'ghp_1234567890abcdefghijklmnopqrstuvwxyz'), true);
+        assert.strictEqual(showErrorMessageStub.called, false);
     });
 });
