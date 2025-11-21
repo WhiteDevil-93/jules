@@ -4,6 +4,7 @@ import * as vscode from "vscode";
 import { JulesApiClient } from './julesApiClient';
 import { GitHubBranch, GitHubRepo, Source as SourceType, SourcesResponse } from './types';
 import { getBranchesForSession } from './branchUtils';
+import { parseGitHubUrl, createRemoteBranch } from "./githubUtils";
 
 // Constants
 const JULES_API_BASE_URL = "https://jules.googleapis.com/v1alpha";
@@ -118,6 +119,59 @@ async function getStoredApiKey(
     return undefined;
   }
   return apiKey;
+}
+
+async function getGitHubUrl(): Promise<string | undefined> {
+  try {
+    const gitExtension = vscode.extensions.getExtension('vscode.git');
+    if (!gitExtension) {
+      throw new Error('Git extension not found');
+    }
+    const git = gitExtension.exports.getAPI(1);
+    const repository = git.repositories[0];
+    if (!repository) {
+      throw new Error('No Git repository found');
+    }
+    const remote = repository.state.remotes.find(
+      (r: { name: string; fetchUrl?: string; pushUrl?: string }) => r.name === 'origin'
+    );
+    if (!remote) {
+      throw new Error('No origin remote found');
+    }
+    return remote.fetchUrl || remote.pushUrl;
+  } catch (error) {
+    console.error('Failed to get GitHub URL:', error);
+    return undefined;
+  }
+}
+
+/**
+ * リモートブランチ作成に必要なリポジトリ情報を取得
+ */
+async function getRepoInfoForBranchCreation(
+  context: vscode.ExtensionContext
+): Promise<{ pat: string; owner: string; repo: string } | null> {
+  const pat = await context.secrets.get("jules-github-pat");
+  if (!pat) {
+    vscode.window.showErrorMessage(
+      "GitHub PAT is not set. Please run 'Jules: Set GitHub PAT' command first."
+    );
+    return null;
+  }
+
+  const gitHubUrl = await getGitHubUrl();
+  if (!gitHubUrl) {
+    vscode.window.showErrorMessage("Unable to determine GitHub repository URL.");
+    return null;
+  }
+
+  const repoInfo = parseGitHubUrl(gitHubUrl);
+  if (!repoInfo) {
+    vscode.window.showErrorMessage("Invalid GitHub repository URL.");
+    return null;
+  }
+
+  return { pat, ...repoInfo };
 }
 
 export function buildFinalPrompt(userPrompt: string): string {
@@ -1168,13 +1222,47 @@ export function activate(context: vscode.ExtensionContext) {
           logChannel.appendLine(`[Jules] Warning: Branch "${startingBranch}" not found on remote`);
 
           const action = await vscode.window.showWarningMessage(
-            `Branch "${startingBranch}" exists locally but has not been pushed to remote.\n\nJules requires a remote branch to start a session.\nYou can push this branch first, or use the default branch "${selectedDefaultBranch}" instead.`,
+            `Branch "${startingBranch}" exists locally but has not been pushed to remote.\n\nJules requires a remote branch to start a session.`,
             { modal: true },
+            'Create Remote Branch',
             'Use Default Branch',
             'Cancel'
           );
 
-          if (action === 'Use Default Branch') {
+          if (action === 'Create Remote Branch') {
+            const creationInfo = await getRepoInfoForBranchCreation(context);
+            if (!creationInfo) {
+              return; // エラーメッセージはヘルパー内で表示済み
+            }
+
+            // リモートブランチを作成
+            try {
+              await vscode.window.withProgress(
+                {
+                  location: vscode.ProgressLocation.Notification,
+                  title: "Creating remote branch...",
+                  cancellable: false,
+                },
+                async (progress) => {
+                  progress.report({ increment: 0, message: "Initializing..." });
+                  await createRemoteBranch(
+                    creationInfo.pat,
+                    creationInfo.owner,
+                    creationInfo.repo,
+                    startingBranch
+                  );
+                  progress.report({ increment: 100, message: "Remote branch created!" });
+                }
+              );
+              logChannel.appendLine(`[Jules] Remote branch "${startingBranch}" created successfully`);
+              vscode.window.showInformationMessage(`Remote branch "${startingBranch}" created successfully.`);
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : "Unknown error";
+              logChannel.appendLine(`[Jules] Failed to create remote branch: ${errorMessage}`);
+              vscode.window.showErrorMessage(`Failed to create remote branch: ${errorMessage}`);
+              return;
+            }
+          } else if (action === 'Use Default Branch') {
             startingBranch = selectedDefaultBranch;
             logChannel.appendLine(`[Jules] Using default branch: ${selectedDefaultBranch}`);
           } else {
@@ -1527,6 +1615,48 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const setGitHubPatDisposable = vscode.commands.registerCommand(
+    "jules-extension.setGitHubPat",
+    async () => {
+      const pat = await vscode.window.showInputBox({
+        prompt: 'Enter your GitHub Personal Access Token (with "repo" scope)',
+        password: true,
+        placeHolder: 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        ignoreFocusOut: true,
+        validateInput: (value) => {
+          if (!value || value.trim().length === 0) {
+            return 'PAT cannot be empty';
+          }
+
+          // 厳格なフォーマットチェック
+          const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
+          const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
+
+          if (!ghpPattern.test(value) && !githubPatPattern.test(value)) {
+            return 'Invalid PAT format. Expected formats:\n' +
+              '- Classic: ghp_ followed by 36 characters\n' +
+              '- Fine-grained: github_pat_ followed by 82 characters';
+          }
+
+          return null;
+        }
+      });
+
+      if (pat) {
+        // 追加の検証（validateInputが通った場合でも再チェック）
+        const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
+        const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
+        if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
+          await context.secrets.store('jules-github-pat', pat);
+          vscode.window.showInformationMessage('GitHub PAT saved successfully');
+          logChannel.appendLine('[Jules] GitHub PAT saved');
+        } else {
+          vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
+        }
+      }
+    }
+  );
+
   context.subscriptions.push(
     setApiKeyDisposable,
     verifyApiKeyDisposable,
@@ -1548,3 +1678,4 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
   stopAutoRefresh();
 }
+
