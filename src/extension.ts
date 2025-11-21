@@ -1593,7 +1593,7 @@ export function activate(context: vscode.ExtensionContext) {
           prompt:
             "GitHub Personal Access Token を入力してください（PRのステータスチェック用）",
           password: true,
-          placeHolder: "ghp_xxxxxxxxxxxxxxxxxxxx",
+          placeHolder: "Enter your GitHub PAT",
           ignoreFocusOut: true,
         });
 
@@ -1646,7 +1646,7 @@ export function activate(context: vscode.ExtensionContext) {
       const pat = await vscode.window.showInputBox({
         prompt: 'Enter your GitHub Personal Access Token (with "repo" scope)',
         password: true,
-        placeHolder: 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        placeHolder: 'Enter your GitHub PAT',
         ignoreFocusOut: true,
         validateInput: (value) => {
           if (!value || value.trim().length === 0) {
@@ -1658,9 +1658,7 @@ export function activate(context: vscode.ExtensionContext) {
           const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
 
           if (!ghpPattern.test(value) && !githubPatPattern.test(value)) {
-            return 'Invalid PAT format. Expected formats:\n' +
-              '- Classic: ghp_ followed by 36 characters\n' +
-              '- Fine-grained: github_pat_ followed by 82 characters';
+            return 'Invalid PAT format. Please enter a valid GitHub Personal Access Token.';
           }
 
           return null;

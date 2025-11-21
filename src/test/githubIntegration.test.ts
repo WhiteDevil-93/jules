@@ -137,7 +137,7 @@ suite('GitHub Integration Tests', () => {
 
     test('Should proceed with branch creation when PAT is set', async () => {
         // PAT設定済み
-        secretsStub.get.withArgs('jules-github-pat').resolves('ghp_test1234567890abcdef');
+        secretsStub.get.withArgs('jules-github-pat').resolves('test-pat-placeholder');
 
         // ユーザーが "Create Remote Branch" を選択
         showWarningMessageStub.resolves('Create Remote Branch');
@@ -215,7 +215,7 @@ suite('GitHub Integration Tests', () => {
 
     test('Should accept valid PAT formats in Set GitHub PAT command', async () => {
         // 有効なPAT形式でテスト
-        showInputBoxStub.resolves('ghp_1234567890abcdefghijklmnopqrstuvwxyz');
+        showInputBoxStub.resolves('test-valid-pat-placeholder');
 
         // setGitHubPatコマンドを呼び出し
         await vscode.commands.executeCommand('jules-extension.setGitHubPat');
