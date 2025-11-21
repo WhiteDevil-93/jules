@@ -1387,8 +1387,7 @@ export function activate(context: vscode.ExtensionContext) {
             `Branch "${startingBranch}" exists locally but has not been pushed to remote.\n\nJules requires a remote branch to start a session.`,
             { modal: true },
             'Create Remote Branch',
-            'Use Default Branch',
-            'Cancel'
+            'Use Default Branch'
           );
 
           if (action === 'Create Remote Branch') {
@@ -1533,6 +1532,41 @@ export function activate(context: vscode.ExtensionContext) {
 
   startAutoRefresh(context, sessionsProvider);
 
+  // Show full plan details in a QuickPick. Collects steps from planGenerated activities.
+  async function showPlanDetails(activities: Activity[]): Promise<void> {
+    const planActivities = activities.filter((a) => a.planGenerated);
+    if (planActivities.length === 0) {
+      vscode.window.showInformationMessage('No plan details available');
+      return;
+    }
+
+    const items: vscode.QuickPickItem[] = [];
+    planActivities.forEach((a, planIdx) => {
+      const plan = a.planGenerated!.plan;
+      const title = plan.title || `Plan ${planIdx + 1}`;
+      const steps = Array.isArray(plan.steps) ? plan.steps : [];
+      steps.forEach((step, stepIdx) => {
+        items.push({
+          label: `📋 ${title} — Step ${stepIdx + 1}`,
+          detail: step,
+          description: `${title}`,
+        });
+      });
+    });
+
+    if (items.length === 0) {
+      vscode.window.showInformationMessage('No plan steps available');
+      return;
+    }
+
+    await vscode.window.showQuickPick(items, {
+      placeHolder: 'Plan Details - Review all steps',
+      canPickMany: false,
+      matchOnDescription: true,
+      matchOnDetail: true,
+    });
+  }
+
   const onDidChangeConfiguration = vscode.workspace.onDidChangeConfiguration(
     (event) => {
       if (
@@ -1638,6 +1672,30 @@ export function activate(context: vscode.ExtensionContext) {
               `${icon} ${timestamp} (${activity.originator}): ${message}`
             );
           });
+        }
+        // Show modal prompt for any generated plan (provide title + up to 100 chars summary)
+        const planActivity = data.activities.find((a) => a.planGenerated);
+        const plan = planActivity?.planGenerated?.plan;
+        if (plan) {
+          const rawDesc = Array.isArray(plan.steps) ? plan.steps.join(' ') : '';
+          const summary = rawDesc.length > 100 ? rawDesc.substring(0, 100) + "..." : rawDesc;
+          const message = plan.title
+            ? `📝 Plan: ${plan.title}\n\n${summary}\n\nApprove this plan?`
+            : `Plan generated. Approve plan?`;
+
+          const action = await vscode.window.showInformationMessage(
+            message,
+            { modal: true },
+            'Approve',
+            'View Details'
+          );
+
+          if (action === 'Approve') {
+            await approvePlan(sessionId, context);
+          } else if (action === 'View Details') {
+            // Show detailed plan steps in QuickPick
+            await showPlanDetails(data.activities);
+          }
         }
         await context.globalState.update("active-session-id", sessionId);
       } catch (error) {

@@ -28,8 +28,7 @@ suite('Branch Validation Tests', () => {
 Jules requires a remote branch to start a session.
 You can push this branch first, or use the default branch "${'main'}" instead.`,
                 { modal: true },
-                { title: 'Use Default Branch' },
-                { title: 'Cancel' }
+                { title: 'Use Default Branch' }
             );
         }
 
@@ -53,8 +52,7 @@ You can push this branch first, or use the default branch "${'main'}" instead.`,
 Jules requires a remote branch to start a session.
 You can push this branch first, or use the default branch "${defaultBranch}" instead.`,
                 { modal: true },
-                { title: 'Use Default Branch' },
-                { title: 'Cancel' }
+                { title: 'Use Default Branch' }
             );
 
             if (action?.title === 'Use Default Branch') {
@@ -81,8 +79,7 @@ You can push this branch first, or use the default branch "${defaultBranch}" ins
 Jules requires a remote branch to start a session.
 You can push this branch first, or use the default branch "${'main'}" instead.`,
                 { modal: true },
-                { title: 'Use Default Branch' },
-                { title: 'Cancel' }
+                { title: 'Use Default Branch' }
             );
 
             if (action?.title !== 'Use Default Branch') {
@@ -110,8 +107,7 @@ You can push this branch first, or use the default branch "${'main'}" instead.`,
 Jules requires a remote branch to start a session.
 You can push this branch first, or use the default branch "${'main'}" instead.`,
                 { modal: true },
-                'Use Default Branch',
-                'Cancel'
+                'Use Default Branch'
             );
         }
 
