@@ -1160,7 +1160,17 @@ export function activate(context: vscode.ExtensionContext) {
           }
         });
       }
+            logChannel.appendLine(`Failed to fetch sources: ${error}`);
+            vscode.window.showErrorMessage(
+              "Failed to fetch sources. Please check your internet connection."
+            );
+            return [];
+          }
+        });
 
+      }
+
+      const items: SourceQuickPickItem[] = sources.map((source) => ({
       const items: SourceQuickPickItem[] = sources.map((source) => ({
         label: source.name || source.id || "Unknown",
         description: source.url || "",
