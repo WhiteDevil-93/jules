@@ -167,6 +167,11 @@
         "title": "Clear Jules Cache",
         "category": "Jules",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "jules-extension.signInGitHub",
+        "title": "Sign in to GitHub",
+        "category": "Jules"
       }
     ],
     "views": {
