@@ -678,10 +678,12 @@ function escapeAttribute(value: string): string {
 function getNonce(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-            const message = getActivityMessage(activity);
-            if (activity.planGenerated) {
-              planDetected = true;
-            }
+  let result = "";
+  for (let i = 0; i < 64; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 function getActivityIcon(activity: Activity): string {
   if (activity.planGenerated) {
@@ -1364,20 +1366,7 @@ export function activate(context: vscode.ExtensionContext) {
             const timestamp = activity.createTime ? new Date(activity.createTime).toLocaleString() : "";
             const message = getActivityMessage(activity);
             if (activity.planGenerated) {
-              message = `Plan generated: ${activity.planGenerated.plan?.title || "Plan"
-                }`;
               planDetected = true;
-            } else if (activity.planApproved) {
-              message = `Plan approved: ${activity.planApproved.planId}`;
-            } else if (activity.progressUpdated) {
-              message = `Progress: ${activity.progressUpdated.title}${activity.progressUpdated.description
-                ? " - " + activity.progressUpdated.description
-                : ""
-                }`;
-            } else if (activity.sessionCompleted) {
-              message = "Session completed";
-            } else {
-              message = "Unknown activity";
             }
             activitiesChannel.appendLine(
               `${icon} ${timestamp} (${activity.originator}): ${message}`
