@@ -1,6 +1,9 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from "vscode";
+import { JulesApiClient } from './julesApiClient';
+import { GitHubBranch, GitHubRepo, Source as SourceType, SourcesResponse } from './types';
+import { getBranchesForSession } from './branchUtils';
 
 // Constants
 const JULES_API_BASE_URL = "https://jules.googleapis.com/v1alpha";
@@ -16,19 +19,8 @@ interface PRStatusCache {
 const prStatusCache: PRStatusCache = {};
 const PR_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
-interface Source {
-  name?: string;
-  id?: string;
-  url?: string;
-  description?: string;
-}
-
-interface SourcesResponse {
-  sources: Source[];
-}
-
 interface SourceQuickPickItem extends vscode.QuickPickItem {
-  source: Source;
+  source: SourceType;
 }
 
 interface CreateSessionRequest {
@@ -764,7 +756,7 @@ class JulesSessionsProvider
     }
 
     const selectedSource =
-      this.context.globalState.get<Source>("selected-source");
+      this.context.globalState.get<SourceType>("selected-source");
 
     if (!selectedSource) {
       const item = new vscode.TreeItem(
@@ -973,7 +965,7 @@ function updateStatusBar(
   context: vscode.ExtensionContext,
   statusBarItem: vscode.StatusBarItem
 ) {
-  const selectedSource = context.globalState.get<Source>("selected-source");
+  const selectedSource = context.globalState.get<SourceType>("selected-source");
 
   if (selectedSource) {
     // GitHubリポジトリ名を抽出（例: "sources/github/owner/repo" -> "owner/repo"）
@@ -1019,6 +1011,10 @@ export function activate(context: vscode.ExtensionContext) {
   const activitiesChannel =
     vscode.window.createOutputChannel("Jules Activities");
   context.subscriptions.push(activitiesChannel);
+
+  // Create OutputChannel for Logs
+  const logChannel = vscode.window.createOutputChannel("Jules Extension Logs");
+  context.subscriptions.push(logChannel);
 
   const setApiKeyDisposable = vscode.commands.registerCommand(
     "jules-extension.setApiKey",
@@ -1121,7 +1117,7 @@ export function activate(context: vscode.ExtensionContext) {
     async () => {
       const selectedSource = context.globalState.get(
         "selected-source"
-      ) as Source;
+      ) as SourceType;
       if (!selectedSource) {
         vscode.window.showErrorMessage(
           "No source selected. Please list and select a source first."
@@ -1136,7 +1132,36 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      const apiClient = new JulesApiClient(apiKey, JULES_API_BASE_URL);
+
       try {
+        // ブランチ選択ロジック（メッセージ入力前に移動）
+        const { branches, defaultBranch: selectedDefaultBranch, currentBranch } = await getBranchesForSession(selectedSource, apiClient, logChannel);
+
+        // QuickPickでブランチ選択
+        const selectedBranch = await vscode.window.showQuickPick(
+          branches.map(branch => ({
+            label: branch,
+            picked: branch === selectedDefaultBranch,
+            description: (
+              branch === selectedDefaultBranch ? '(default)' : undefined
+            ) || (
+              branch === currentBranch ? '(current)' : undefined
+            )
+          })),
+          {
+            placeHolder: 'Select a branch for this session',
+            title: 'Branch Selection'
+          }
+        );
+
+        if (!selectedBranch) {
+          vscode.window.showWarningMessage("Branch selection was cancelled.");
+          return;
+        }
+
+        const startingBranch = selectedBranch.label;
+
         const result = await showMessageComposer({
           title: "Create Jules Session",
           placeholder: "Describe the task you want Jules to tackle...",
@@ -1163,7 +1188,7 @@ export function activate(context: vscode.ExtensionContext) {
           sourceContext: {
             source: selectedSource.name || selectedSource.id || "",
             githubRepoContext: {
-              startingBranch: "main",
+              startingBranch,
             },
           },
           automationMode,
@@ -1317,8 +1342,8 @@ export function activate(context: vscode.ExtensionContext) {
               message = `Plan approved: ${activity.planApproved.planId}`;
             } else if (activity.progressUpdated) {
               message = `Progress: ${activity.progressUpdated.title}${activity.progressUpdated.description
-                  ? " - " + activity.progressUpdated.description
-                  : ""
+                ? " - " + activity.progressUpdated.description
+                : ""
                 }`;
             } else if (activity.sessionCompleted) {
               message = "Session completed";
