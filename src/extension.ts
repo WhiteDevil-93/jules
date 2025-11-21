@@ -565,6 +565,12 @@ function getComposerHtml(
     margin-right: auto;
   }
 
+  .require-approval-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
   button {
     padding: 6px 14px;
     border-radius: 4px;
