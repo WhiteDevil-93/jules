@@ -142,7 +142,7 @@ export async function getBranchesForSession(
     }
 
     const result = { branches, defaultBranch: selectedDefaultBranch, currentBranch, remoteBranches };
-    context.globalState.update(cacheKey, { ...result, timestamp: Date.now() });
+    await context.globalState.update(cacheKey, { ...result, timestamp: Date.now() });
     outputChannel.appendLine(`Fetched ${branches.length} branches`);
     return result;
 }
