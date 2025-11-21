@@ -117,19 +117,25 @@ This extension contributes the following settings:
 
 ## ⚠️ Important Notes
 
-- **Card Block Rendering:** When using features that are displayed as card blocks, please be mindful of the content's structure to ensure it renders correctly.
+- **Card Block Rendering:** When using features that are displayed as card blocks, please be mindful of the content's structure to ensure it renders correctly. Using complex Markdown or nested blocks may cause rendering issues. We recommend keeping the content simple for the best experience.
 
 ## Commands
 
-- `Jules Extension: Set Jules API Key` - Configure your API credentials
-- `Jules Extension: Verify Jules API Key` - Test your API connection
-- `Jules Extension: List Jules Sources` - Browse available sources
-- `Jules Extension: Create Jules Session` - Start a new analysis session
-- `Jules Extension: Refresh Jules Sessions` - Reload the sessions list
-- `Jules Extension: Show Jules Activities` - View session activities
-- `Jules Extension: Refresh Jules Activities` - Update activities view
-- `Jules Extension: Send Message to Jules Session` - Post follow-up instructions to an active session
-- `Jules Extension: Approve Jules Plan` - Approve a generated plan for execution
+- `Jules: Set Jules API Key` - Configure your API credentials
+- `Jules: Verify Jules API Key` - Test your API connection
+- `Jules: List Jules Sources` - Browse available sources
+- `Jules: Create Jules Session` - Start a new analysis session
+- `Jules: Refresh Jules Sessions` - Reload the sessions list
+- `Jules: Show Jules Activities` - View session activities
+- `Jules: Refresh Jules Activities` - Update activities view
+- `Jules: Send Message to Jules Session` - Post follow-up instructions to an active session
+- `Jules: Approve Jules Plan` - Approve a generated plan for execution
+- `Jules: Open Jules Settings` - Open the extension settings
+- `Jules: Delete Session from Local Cache` - Remove a session from the local cache
+- `Jules: Set GitHub Token (for PR Status)` - Set a GitHub token for checking pull request status
+- `Jules: [DEPRECATED] Set GitHub PAT` - Set a GitHub Personal Access Token (deprecated)
+- `Jules: Clear Jules Cache` - Clear all cached data
+- `Jules: Sign in to GitHub` - Authenticate with your GitHub account
 
 ## 📚 Links
 
