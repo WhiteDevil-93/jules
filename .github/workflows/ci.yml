@@ -18,14 +18,12 @@ jobs:
         with:
           node-version: 18
           cache: "npm"
-          cache-dependency-path: jules-extension/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: ./jules-extension
         run: npm ci
 
       - name: Security Audit (npm)
-        working-directory: ./jules-extension
         shell: bash
         run: |
           npm audit --audit-level=moderate || true
@@ -51,7 +49,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
-          cache-dependency-path: jules-extension/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Cache VS Code Test Downloads (.vscode-test)
         uses: actions/cache@v4
@@ -59,7 +57,7 @@ jobs:
           path: |
             ~/.vscode-test
             ~/.vscode
-          key: ${{ runner.os }}-vscode-test-${{ hashFiles('**/jules-extension/package-lock.json') }}
+          key: ${{ runner.os }}-vscode-test-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-vscode-test-
 
@@ -68,25 +66,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
       - name: Install dependencies
-        working-directory: ./jules-extension
         run: npm ci
 
       - name: Lint
-        working-directory: ./jules-extension
         run: npm run lint
 
       - name: Compile
-        working-directory: ./jules-extension
         run: npm run compile
 
       - name: Run tests (Linux)
         if: runner.os == 'Linux'
-        working-directory: ./jules-extension
         run: |
           xvfb-run -a npm test
 
       - name: Run tests (macOS & Windows)
         if: runner.os != 'Linux'
-        working-directory: ./jules-extension
         shell: bash
         run: npm test

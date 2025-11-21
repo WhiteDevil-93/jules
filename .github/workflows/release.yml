@@ -19,23 +19,19 @@ jobs:
           node-version: "20.x"
 
       - run: npm ci
-        working-directory: ./jules-extension
 
       - run: npm run compile
-        working-directory: ./jules-extension
 
       - name: Install xvfb
         run: sudo apt-get install -y xvfb
 
       - run: xvfb-run -a npm test
-        working-directory: ./jules-extension
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
 
       - name: Package extension
         run: vsce package
-        working-directory: ./jules-extension
 
       - name: Create Release
         uses: actions/github-script@v8
@@ -44,7 +40,7 @@ jobs:
             const fs = require('fs');
             const path = require('path');
 
-            const vsixDir = './jules-extension';
+            const vsixDir = './';
             const files = fs.readdirSync(vsixDir);
             const vsixFile = files.find((file) => file.endsWith('.vsix'));
 
