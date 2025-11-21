@@ -27,7 +27,7 @@ export class JulesAPIClient {
         return (await response.json()) as ActivitiesResponse;
     }
 
-    async getActivity(sessionId: string, activityName: string): Promise<Activity> {
+    async getActivity(activityName: string): Promise<Activity> {
         // resource name = sessions/{session}/activities/{activity}
         const response = await fetch(`${JULES_API_BASE_URL}/${activityName}`, {
             method: "GET",

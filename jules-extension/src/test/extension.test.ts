@@ -5,6 +5,7 @@ import * as assert from "assert";
 import * as vscode from "vscode";
 import { SessionTreeItem, mapApiStateToSessionState, buildFinalPrompt } from "../extension";
 import { getArtifactsHtml } from "../extension";
+import { Artifact } from "../types";
 import * as sinon from "sinon";
 
 suite("Extension Test Suite", () => {
@@ -196,7 +197,7 @@ suite("Extension Test Suite", () => {
   suite("Artifacts UI", () => {
     test("getArtifactsHtml returns html with media and patch", () => {
       const fakeWebview: any = { cspSource: "vscode-resource:" };
-      const artifacts = [
+      const artifacts: Artifact[] = [
         {
           media: [{ mimeType: "image/png", data: "RkFN" }],
         },
@@ -214,7 +215,7 @@ suite("Extension Test Suite", () => {
         },
       ];
 
-      const html = getArtifactsHtml(fakeWebview, artifacts as any);
+      const html = getArtifactsHtml(fakeWebview, artifacts);
       assert.ok(html.includes("<img"));
       assert.ok(html.includes("added"));
       assert.ok(html.includes("ls"));

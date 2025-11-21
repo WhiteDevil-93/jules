@@ -33,6 +33,12 @@ interface SourceQuickPickItem extends vscode.QuickPickItem {
   source: Source;
 }
 
+interface ActivityQuickPickItem extends vscode.QuickPickItem {
+  activityName: string;
+  hasArtifacts: boolean;
+  message?: string;
+}
+
 interface CreateSessionRequest {
   prompt: string;
   sourceContext: {
@@ -565,9 +571,7 @@ function getComposerHtml(
 </html>`;
 }
 
-function escapeCss(value: string): string {
-  return value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
+// escapeCss was unused — use escapeHtml for all HTML escaping
 
 export function getArtifactsHtml(webview: vscode.Webview, artifacts: Artifact[]): string {
   const nonce = getNonce();
@@ -583,7 +587,7 @@ export function getArtifactsHtml(webview: vscode.Webview, artifacts: Artifact[])
 
   const changeSetHtml = artifacts
     .filter((a) => a.changeSet && a.changeSet.gitPatch?.unidiffPatch)
-    .map((a) => {
+    .map((a, idx) => {
       const patch = a.changeSet?.gitPatch?.unidiffPatch || "";
       const baseCommit = a.changeSet?.gitPatch?.baseCommitId || "";
       const suggested = a.changeSet?.gitPatch?.suggestedCommitMessage || "";
@@ -598,7 +602,7 @@ export function getArtifactsHtml(webview: vscode.Webview, artifacts: Artifact[])
         <div class="changeset">
           <div class="meta">Base Commit: ${escapeHtml(baseCommit)}</div>
           <pre class="patch">${rows}</pre>
-          <div class="commit">Suggested: <input id="suggested" readonly value="${escapeAttribute(suggested)}"/></div>
+          <div class="commit">Suggested: <input id="suggested-${idx}" readonly value="${escapeAttribute(suggested)}"/></div>
         </div>
       `;
     })
@@ -607,7 +611,8 @@ export function getArtifactsHtml(webview: vscode.Webview, artifacts: Artifact[])
   const bashHtml = artifacts
     .filter((a) => a.bashOutput)
     .map((a) => {
-      const b = a.bashOutput!;
+      const b = a.bashOutput;
+      if (!b) return "";
       const output = escapeHtml(b.output || "");
       const cls = (b.exitCode ?? 0) === 0 ? "ok" : "err";
       return `
@@ -673,23 +678,10 @@ function escapeAttribute(value: string): string {
 function getNonce(): string {
   const chars =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < 16; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-interface SessionsResponse {
-  sessions: Session[];
-}
-
-interface Plan {
-  title?: string;
-  steps?: string[];
-}
-
-// Activity and ActivitiesResponse are now defined in src/types.ts
+            const message = getActivityMessage(activity);
+            if (activity.planGenerated) {
+              planDetected = true;
+            }
 
 function getActivityIcon(activity: Activity): string {
   if (activity.planGenerated) {
@@ -1370,7 +1362,7 @@ export function activate(context: vscode.ExtensionContext) {
           data.activities.forEach((activity) => {
             const icon = getActivityIcon(activity);
             const timestamp = activity.createTime ? new Date(activity.createTime).toLocaleString() : "";
-            let message = "";
+            const message = getActivityMessage(activity);
             if (activity.planGenerated) {
               message = `Plan generated: ${activity.planGenerated.plan?.title || "Plan"
                 }`;
@@ -1408,10 +1400,10 @@ export function activate(context: vscode.ExtensionContext) {
               activityName: a.name,
               hasArtifacts: !!(a.artifacts && a.artifacts.length > 0),
               message: summary,
-            } as any;
+            } as ActivityQuickPickItem;
           });
 
-          const selectedAct = await vscode.window.showQuickPick(actItems as any[], {
+          const selectedAct = await vscode.window.showQuickPick(actItems as ActivityQuickPickItem[], {
             placeHolder: "Select activity to view artifacts (if present)",
             matchOnDetail: true,
           });
@@ -1601,7 +1593,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       try {
         const client = new JulesAPIClient(apiKey);
-        const activity = await client.getActivity(sessionId, activityName);
+        const activity = await client.getActivity(activityName);
         if (!activity || !activity.artifacts || activity.artifacts.length === 0) {
           vscode.window.showInformationMessage("No artifacts for the selected activity.");
           return;
@@ -1627,6 +1619,22 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(showActivityArtifactsDisposable);
+}
+
+function getActivityMessage(activity: Activity): string {
+  if (activity.planGenerated) {
+    return `Plan generated: ${activity.planGenerated.plan?.title || "Plan"}`;
+  }
+  if (activity.planApproved) {
+    return `Plan approved: ${activity.planApproved.planId}`;
+  }
+  if (activity.progressUpdated) {
+    return `Progress: ${activity.progressUpdated.title}${activity.progressUpdated.description ? " - " + activity.progressUpdated.description : ""}`;
+  }
+  if (activity.sessionCompleted) {
+    return "Session completed";
+  }
+  return activity.type || "Unknown activity";
 }
 
 // This method is called when your extension is deactivated
