@@ -80,69 +80,87 @@ export async function getBranchesForSession(
     outputChannel: vscode.OutputChannel,
     context: vscode.ExtensionContext,
     forceRefresh: boolean = false
-): Promise<{ branches: string[]; defaultBranch: string; currentBranch: string | null; remoteBranches: string[] }> {
-    const cacheKey = `jules.branches.${selectedSource.id}`;
-    const cached = context.globalState.get<BranchesCache>(cacheKey);
+): Promise<{
+    branches: string[];
+    defaultBranch: string;
+    currentBranch: string | null;
+    remoteBranches: string[];
+}> {
+    const sourceId = selectedSource.name || selectedSource.id || '';
+    const cacheKey = `jules.branches.${sourceId}`;
 
-    if (cached && isCacheValid(cached.timestamp) && !forceRefresh) {
-        outputChannel.appendLine('Using cached branches');
-        return {
-            branches: cached.branches,
-            defaultBranch: cached.defaultBranch,
-            currentBranch: cached.currentBranch,
-            remoteBranches: cached.remoteBranches
-        };
-    }
+    // キャッシュチェック（簡潔なログ）
+    if (!forceRefresh) {
+        const cached = context.globalState.get<BranchesCache>(cacheKey);
 
-    if (forceRefresh) {
-        outputChannel.appendLine('Force refreshing branches cache');
-    }
-
-    let branches: string[] = [];
-    let defaultBranch = DEFAULT_FALLBACK_BRANCH;
-    let remoteBranches: string[] = [];
-
-    try {
-        const sourceDetail = await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Fetching branches...',
-            cancellable: false
-        }, async (progress) => {
-            return await apiClient.getSource(selectedSource.name!);
-        });
-
-        if (sourceDetail.githubRepo?.branches) {
-            remoteBranches = sourceDetail.githubRepo.branches.map(b => b.displayName);
-            branches = [...remoteBranches];  // リモートブランチをベースに
-            defaultBranch = sourceDetail.githubRepo.defaultBranch?.displayName || DEFAULT_FALLBACK_BRANCH;
+        if (cached && isCacheValid(cached.timestamp)) {
+            outputChannel.appendLine(`[Jules] Using cached branches (${cached.branches.length} branches)`);
+            return {
+                branches: cached.branches,
+                defaultBranch: cached.defaultBranch,
+                currentBranch: cached.currentBranch,
+                remoteBranches: cached.remoteBranches
+            };
         }
-    } catch (error) {
-        outputChannel.appendLine(`Failed to get branches, using default: ${error}`);
-        branches = [defaultBranch];
+    } else {
+        outputChannel.appendLine(`[Jules] Force refreshing branches for ${sourceId}`);
     }
 
-    // 現在のブランチを取得
-    const currentBranch = await getCurrentBranch(outputChannel);
+    outputChannel.appendLine(`[Jules] Fetching branches from API...`);
 
-    // 設定からデフォルトブランチ選択を取得
-    const config = vscode.workspace.getConfiguration('jules');
-    const defaultBranchSetting = config.get<string>('defaultBranch', 'current');
+    return await vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: "Loading branches...",
+            cancellable: false
+        },
+        async () => {
+            let branches: string[] = [];
+            let defaultBranch = DEFAULT_FALLBACK_BRANCH;
+            let remoteBranches: string[] = [];
 
-    // 設定に基づいてデフォルトブランチを決定
-    let selectedDefaultBranch = defaultBranch;
-    if (defaultBranchSetting === 'current' && currentBranch) {
-        selectedDefaultBranch = currentBranch;
-    } else if (defaultBranchSetting === 'main') {
-        selectedDefaultBranch = 'main';
-    } // 'default' の場合はAPIから取得したdefaultBranchを使用
+            try {
+                const sourceDetail = await apiClient.getSource(selectedSource.name!);
+                if (sourceDetail.githubRepo?.branches) {
+                    remoteBranches = sourceDetail.githubRepo.branches.map(b => b.displayName);
+                    branches = [...remoteBranches];
+                    defaultBranch = sourceDetail.githubRepo.defaultBranch?.displayName || DEFAULT_FALLBACK_BRANCH;
+                }
+            } catch (error: unknown) {
+                const msg = error instanceof Error ? error.message : String(error);
+                outputChannel.appendLine(`[Jules] Failed to get branches: ${msg}`);
+                branches = [defaultBranch];
+            }
 
-    // 現在のブランチをブランチリストの先頭に追加（まだない場合）
-    if (currentBranch && !branches.includes(currentBranch)) {
-        branches.unshift(currentBranch);
-    }
+            const currentBranch = await getCurrentBranch(outputChannel);
 
-    const result = { branches, defaultBranch: selectedDefaultBranch, currentBranch, remoteBranches };
-    await context.globalState.update(cacheKey, { ...result, timestamp: Date.now() });
-    outputChannel.appendLine(`Fetched ${branches.length} branches`);
-    return result;
+            // 警告は1回だけ
+            if (currentBranch && !remoteBranches.includes(currentBranch)) {
+                outputChannel.appendLine(`[Jules] Warning: Current branch "${currentBranch}" not found on remote`);
+                branches.unshift(currentBranch);
+            }
+
+            const config = vscode.workspace.getConfiguration('jules');
+            const defaultBranchConfig = config.get<string>('defaultBranch', 'current');
+
+            let selectedDefaultBranch = defaultBranch;
+            if (defaultBranchConfig === 'current' && currentBranch) {
+                selectedDefaultBranch = currentBranch;
+            } else if (defaultBranchConfig === 'main') {
+                selectedDefaultBranch = branches.includes('main') ? 'main' : defaultBranch;
+            }
+
+            const cache: BranchesCache = {
+                branches,
+                defaultBranch: selectedDefaultBranch,
+                remoteBranches,
+                currentBranch,
+                timestamp: Date.now()
+            };
+            await context.globalState.update(cacheKey, cache);
+            outputChannel.appendLine(`[Jules] Cached ${branches.length} branches`);
+
+            return { branches, defaultBranch: selectedDefaultBranch, currentBranch, remoteBranches };
+        }
+    );
 }

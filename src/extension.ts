@@ -4,7 +4,12 @@ import * as vscode from "vscode";
 import { JulesApiClient } from './julesApiClient';
 import { GitHubBranch, GitHubRepo, Source as SourceType, SourcesResponse } from './types';
 import { getBranchesForSession } from './branchUtils';
-import { parseGitHubUrl, createRemoteBranch } from "./githubUtils";
+import { parseGitHubUrl } from "./githubUtils";
+import { GitHubAuth } from './githubAuth';
+import { promisify } from 'util';
+import { exec } from 'child_process';
+
+const execAsync = promisify(exec);
 import { SourcesCache, isCacheValid } from './cache';
 
 // Constants
@@ -150,30 +155,133 @@ async function getGitHubUrl(): Promise<string | undefined> {
 /**
  * リモートブランチ作成に必要なリポジトリ情報を取得
  */
-async function getRepoInfoForBranchCreation(
-  context: vscode.ExtensionContext
-): Promise<{ pat: string; owner: string; repo: string } | null> {
-  const pat = await context.secrets.get("jules-github-pat");
-  if (!pat) {
-    vscode.window.showErrorMessage(
-      "GitHub PAT is not set. Please run 'Jules: Set GitHub PAT' command first."
+async function getRepoInfoForBranchCreation(outputChannel?: vscode.OutputChannel): Promise<{ token: string; owner: string; repo: string } | null> {
+  const logger = outputChannel ?? { appendLine: (s: string) => console.log(s) } as vscode.OutputChannel;
+  const token = await GitHubAuth.getToken();
+
+  if (!token) {
+    const action = await vscode.window.showInformationMessage(
+      'Sign in to GitHub to create remote branch',
+      'Sign In',
+      'Cancel'
     );
+
+    if (action === 'Sign In') {
+      const newToken = await GitHubAuth.signIn();
+      if (!newToken) {
+        return null;
+      }
+      return getRepoInfoForBranchCreation(outputChannel);
+    }
     return null;
   }
 
-  const gitHubUrl = await getGitHubUrl();
-  if (!gitHubUrl) {
-    vscode.window.showErrorMessage("Unable to determine GitHub repository URL.");
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode.window.showErrorMessage('No workspace folder found');
     return null;
   }
 
-  const repoInfo = parseGitHubUrl(gitHubUrl);
-  if (!repoInfo) {
-    vscode.window.showErrorMessage("Invalid GitHub repository URL.");
+  try {
+    const { stdout } = await execAsync('git remote get-url origin', {
+      cwd: workspaceFolder.uri.fsPath
+    });
+
+    const remoteUrl = stdout.trim();
+    logger.appendLine(`[Jules] Remote URL: ${remoteUrl}`);
+
+    // Prefer the shared parser which handles https/ssh and .git suffixes
+    const repoInfo = parseGitHubUrl(remoteUrl);
+    if (!repoInfo) {
+      vscode.window.showErrorMessage('Could not parse GitHub repository URL');
+      return null;
+    }
+    const { owner, repo } = repoInfo;
+    logger.appendLine(`[Jules] Repository: ${owner}/${repo}`);
+
+    return { token, owner, repo };
+  } catch (error: any) {
+    logger.appendLine(`[Jules] Error getting repo info: ${error.message}`);
+    vscode.window.showErrorMessage(`Failed to get repository info: ${error.message}`);
     return null;
   }
+}
 
-  return { pat, ...repoInfo };
+async function createRemoteBranch(
+  token: string,
+  owner: string,
+  repo: string,
+  branchName: string,
+  outputChannel?: vscode.OutputChannel
+): Promise<void> {
+  const logger = outputChannel ?? { appendLine: (s: string) => console.log(s) } as vscode.OutputChannel;
+  try {
+    logger.appendLine('[Jules] Getting current branch SHA...');
+    const sha = await getCurrentBranchSha(outputChannel);
+
+    if (!sha) {
+      throw new Error('Failed to get current branch SHA');
+    }
+
+    logger.appendLine(`[Jules] Current branch SHA: ${sha}`);
+    logger.appendLine(`[Jules] Creating remote branch: ${branchName}`);
+
+    const response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/git/refs`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: sha
+        })
+      }
+    );
+
+    if (!response.ok) {
+      // Read the response as text so we can handle non-JSON errors robustly
+      const respText = await response.text();
+      logger.appendLine(`[Jules] GitHub API error response: ${respText}`);
+      let errMsg = 'Unknown error';
+      try {
+        const parsed = JSON.parse(respText);
+        errMsg = parsed?.message || JSON.stringify(parsed);
+      } catch (e) {
+        errMsg = respText;
+      }
+      throw new Error(`GitHub API error: ${response.status} - ${errMsg}`);
+    }
+
+    const result: any = await response.json().catch(() => null);
+    logger.appendLine(`[Jules] Remote branch created: ${result?.ref ?? 'unknown'}`);
+  } catch (error: any) {
+    logger.appendLine(`[Jules] Failed to create remote branch: ${error.message}`);
+    throw error;
+  }
+}
+
+async function getCurrentBranchSha(outputChannel?: vscode.OutputChannel): Promise<string | null> {
+  const logger = outputChannel ?? { appendLine: (s: string) => console.log(s) } as vscode.OutputChannel;
+  try {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+      return null;
+    }
+
+    const { stdout } = await execAsync('git rev-parse HEAD', {
+      cwd: workspaceFolder.uri.fsPath
+    });
+
+    return stdout.trim();
+  } catch (error) {
+    logger.appendLine(`[Jules] Error getting current branch sha: ${error}`);
+    return null;
+  }
 }
 
 export function buildFinalPrompt(userPrompt: string): string {
@@ -1095,6 +1203,19 @@ export function activate(context: vscode.ExtensionContext) {
   const logChannel = vscode.window.createOutputChannel("Jules Extension Logs");
   context.subscriptions.push(logChannel);
 
+  // Sign in to GitHub via VS Code authentication
+  const signInDisposable = vscode.commands.registerCommand('jules-extension.signInGitHub', async () => {
+    const token = await GitHubAuth.signIn();
+    if (token) {
+      const userInfo = await GitHubAuth.getUserInfo();
+      vscode.window.showInformationMessage(
+        `Signed in to GitHub as ${userInfo?.login || 'user'}`
+      );
+      logChannel.appendLine(`[Jules] Signed in to GitHub as ${userInfo?.login}`);
+    }
+  });
+  context.subscriptions.push(signInDisposable);
+
   const setApiKeyDisposable = vscode.commands.registerCommand(
     "jules-extension.setApiKey",
     async () => {
@@ -1271,7 +1392,7 @@ export function activate(context: vscode.ExtensionContext) {
           );
 
           if (action === 'Create Remote Branch') {
-            const creationInfo = await getRepoInfoForBranchCreation(context);
+            const creationInfo = await getRepoInfoForBranchCreation(logChannel);
             if (!creationInfo) {
               return; // エラーメッセージはヘルパー内で表示済み
             }
@@ -1287,10 +1408,11 @@ export function activate(context: vscode.ExtensionContext) {
                 async (progress) => {
                   progress.report({ increment: 0, message: "Initializing..." });
                   await createRemoteBranch(
-                    creationInfo.pat,
+                    creationInfo.token,
                     creationInfo.owner,
                     creationInfo.repo,
-                    startingBranch
+                    startingBranch,
+                    logChannel
                   );
                   progress.report({ increment: 100, message: "Remote branch created!" });
                 }
@@ -1586,12 +1708,12 @@ export function activate(context: vscode.ExtensionContext) {
 
       const session = item.session;
       const confirm = await vscode.window.showWarningMessage(
-        `本当にセッション "${session.title}" をローカルキャッシュから削除しますか？\n\n注意: これは表示上の削除のみで、Julesサーバー上のセッションは削除されません。`,
+        `Are you sure you want to delete session "${session.title}" from local cache?\n\nNote: this only removes it locally and does not delete the session on Jules server.`,
         { modal: true },
-        "削除する"
+        "Delete"
       );
 
-      if (confirm !== "削除する") {
+      if (confirm !== "Delete") {
         return;
       }
 
@@ -1603,7 +1725,7 @@ export function activate(context: vscode.ExtensionContext) {
       );
 
       vscode.window.showInformationMessage(
-        `セッション "${session.title}" をローカルキャッシュから削除しました。`
+        `Session "${session.title}" removed from local cache.`
       );
 
       // Refresh the view
@@ -1617,7 +1739,7 @@ export function activate(context: vscode.ExtensionContext) {
       try {
         const token = await vscode.window.showInputBox({
           prompt:
-            "GitHub Personal Access Token を入力してください（PRのステータスチェック用）",
+            "Enter your GitHub Personal Access Token (used for PR status checks)",
           password: true,
           placeHolder: "Enter your GitHub PAT",
           ignoreFocusOut: true,
@@ -1631,7 +1753,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (token === "") {
           vscode.window.showWarningMessage(
-            "GitHub Token を入力してください。キャンセルしました。"
+            "GitHub token was empty — cancelled."
           );
           return;
         }
@@ -1639,19 +1761,19 @@ export function activate(context: vscode.ExtensionContext) {
         // Validate token format
         if (!token.startsWith("ghp_") && !token.startsWith("github_pat_")) {
           const proceed = await vscode.window.showWarningMessage(
-            "入力したトークンが GitHub のトークン形式ではないようです。本当に保存しますか？",
+            "The token you entered doesn't look like a typical GitHub token. Save anyway?",
             { modal: true },
-            "保存する",
-            "キャンセル"
+            "Save",
+            "Cancel"
           );
-          if (proceed !== "保存する") {
+          if (proceed !== "Save") {
             return;
           }
         }
 
         await context.secrets.store("jules-github-token", token);
         vscode.window.showInformationMessage(
-          "GitHub Token を安全に保存しました。"
+          "GitHub token saved securely."
         );
         // Clear PR status cache when token changes
         Object.keys(prStatusCache).forEach((key) => delete prStatusCache[key]);
@@ -1669,8 +1791,23 @@ export function activate(context: vscode.ExtensionContext) {
   const setGitHubPatDisposable = vscode.commands.registerCommand(
     "jules-extension.setGitHubPat",
     async () => {
+      // Deprecation warning — suggest OAuth sign-in instead of PAT
+      const proceed = await vscode.window.showWarningMessage(
+        'GitHub PAT is deprecated and will be removed in a future version.\n\nPlease use OAuth sign-in instead.',
+        'Use OAuth (Recommended)',
+        'Continue with PAT'
+      );
+
+      if (proceed === 'Use OAuth (Recommended)') {
+        await vscode.commands.executeCommand('jules-extension.signInGitHub');
+        return;
+      }
+
+      if (proceed !== 'Continue with PAT') {
+        return; // user cancelled
+      }
       const pat = await vscode.window.showInputBox({
-        prompt: 'Enter your GitHub Personal Access Token (with "repo" scope)',
+        prompt: '[DEPRECATED] Enter GitHub Personal Access Token',
         password: true,
         placeHolder: 'Enter your GitHub PAT',
         ignoreFocusOut: true,
@@ -1697,8 +1834,8 @@ export function activate(context: vscode.ExtensionContext) {
         const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
         if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
           await context.secrets.store('jules-github-pat', pat);
-          vscode.window.showInformationMessage('GitHub PAT saved successfully');
-          logChannel.appendLine('[Jules] GitHub PAT saved');
+          vscode.window.showInformationMessage('GitHub PAT saved (deprecated)');
+          logChannel.appendLine('[Jules] GitHub PAT saved (deprecated)');
         } else {
           vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
         }

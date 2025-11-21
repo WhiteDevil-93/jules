@@ -32,14 +32,12 @@ suite('GitHub Integration Tests', () => {
     });
 
     test('Should show error when PAT is not set and user chooses Create Remote Branch', async () => {
-        // PAT未設定
-        secretsStub.get.withArgs('jules-github-pat').resolves(undefined);
-
-        // ユーザーが "Create Remote Branch" を選択
+        // No OAuth token / PAT available
+        // User chooses "Create Remote Branch"
         showWarningMessageStub.resolves('Create Remote Branch');
 
-        // PAT設定ダイアログで "Set PAT Now" を選択
-        showErrorMessageStub.resolves('Set PAT Now');
+        // User sees sign-in prompt and chooses Sign In
+        showInformationMessageStub.resolves('Sign In' as any);
 
         // ロジックシミュレーション
         const remoteBranches = ['main', 'develop'];
@@ -56,42 +54,32 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('jules-github-pat');
+                // No token -> user prompted to sign in (handled above)
+                const signInResult = await vscode.window.showInformationMessage(
+                    'Sign in to GitHub to create remote branch',
+                    'Sign In',
+                    'Cancel'
+                );
 
-                if (!githubPat) {
-                    const setPat = await vscode.window.showErrorMessage(
-                        'GitHub Personal Access Token is not set.\n\n' +
-                        'A PAT with "repo" scope is required to create remote branches.',
-                        { modal: true },
-                        'Set PAT Now',
-                        'Cancel'
-                    );
-
-                    if (setPat === 'Set PAT Now') {
-                        await vscode.commands.executeCommand('jules-extension.setGitHubPat');
-                    }
+                if (signInResult === 'Sign In') {
+                    // In the real flow this would call the auth flow; test ensures the prompt is shown
                 }
             }
         }
 
         // 検証
         assert.strictEqual(showWarningMessageStub.called, true);
-        assert.strictEqual(showErrorMessageStub.called, true);
+        assert.strictEqual(showInformationMessageStub.called, true);
 
-        const errorMessage = showErrorMessageStub.getCall(0).args[0];
-        assert.ok(errorMessage.includes('GitHub Personal Access Token is not set'));
-        assert.ok(errorMessage.includes('repo'));
+        const infoMessage = showInformationMessageStub.getCall(0).args[0];
+        assert.ok(infoMessage.includes('Sign in to GitHub'));
     });
 
     test('Should cancel session creation when user clicks Cancel on PAT dialog', async () => {
-        // PAT未設定
-        secretsStub.get.withArgs('jules-github-pat').resolves(undefined);
-
-        // ユーザーが "Create Remote Branch" を選択
+        // No OAuth token / PAT available
         showWarningMessageStub.resolves('Create Remote Branch');
 
-        // PAT設定ダイアログで "Cancel" を選択
-        showErrorMessageStub.resolves('Cancel');
+        showInformationMessageStub.resolves('Cancel' as any);
 
         // ロジックシミュレーション
         const remoteBranches = ['main', 'develop'];
@@ -109,35 +97,27 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('jules-github-pat');
+                const setRes = await vscode.window.showInformationMessage(
+                    'Sign in to GitHub to create remote branch',
+                    'Sign In',
+                    'Cancel'
+                );
 
-                if (!githubPat) {
-                    const setPat = await vscode.window.showErrorMessage(
-                        'GitHub Personal Access Token is not set.\n\n' +
-                        'A PAT with "repo" scope is required to create remote branches.',
-                        { modal: true },
-                        'Set PAT Now',
-                        'Cancel'
-                    );
-
-                    if (setPat !== 'Set PAT Now') {
-                        // キャンセル
-                        sessionCreated = false;
-                    }
-                } else {
-                    sessionCreated = true;
+                if (setRes !== 'Sign In') {
+                    sessionCreated = false;
                 }
             }
         }
 
         // 検証
         assert.strictEqual(sessionCreated, false);
-        assert.strictEqual(showErrorMessageStub.called, true);
+        assert.strictEqual(showInformationMessageStub.called, true);
     });
 
     test('Should proceed with branch creation when PAT is set', async () => {
-        // PAT設定済み
-        secretsStub.get.withArgs('jules-github-pat').resolves('test-pat-placeholder');
+
+        // Token is available
+        const token = 'token-placeholder';
 
         // ユーザーが "Create Remote Branch" を選択
         showWarningMessageStub.resolves('Create Remote Branch');
@@ -158,9 +138,8 @@ suite('GitHub Integration Tests', () => {
             );
 
             if (action === 'Create Remote Branch') {
-                const githubPat = await secretsStub.get('jules-github-pat');
-
-                if (githubPat) {
+                // token check passes
+                if (token) {
                     proceedToCreation = true;
                 }
             }
@@ -168,7 +147,7 @@ suite('GitHub Integration Tests', () => {
 
         // 検証
         assert.strictEqual(proceedToCreation, true);
-        assert.strictEqual(showErrorMessageStub.called, false); // エラーダイアログは表示されない
+        assert.strictEqual(showErrorMessageStub.called, false);
     });
 
     test('Should use default branch when user selects Use Default Branch', async () => {
@@ -204,6 +183,8 @@ suite('GitHub Integration Tests', () => {
         // 実際のコマンド実行をテスト
         showInputBoxStub.resolves('invalid_pat_format');
 
+        // simulate user choosing "Continue with PAT" on deprecation warning
+        showWarningMessageStub.resolves('Continue with PAT');
         // setGitHubPatコマンドを呼び出し
         await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 
@@ -218,6 +199,8 @@ suite('GitHub Integration Tests', () => {
         const validPat = 'ghp_' + 'a'.repeat(36);
         showInputBoxStub.resolves(validPat);
 
+        // simulate user choosing "Continue with PAT" on deprecation warning
+        showWarningMessageStub.resolves('Continue with PAT');
         // setGitHubPatコマンドを呼び出し
         await vscode.commands.executeCommand('jules-extension.setGitHubPat');
 
