@@ -94,7 +94,7 @@ jobs:
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: issueNumber,
-                  body: `❌ **Jules起動エラー**\n\n${error.message}`
+                  body: `❌ **Jules起動エラー**\n\n\`\`\`json\n${error.message}\n\`\`\``
                 });
                 throw error;
               }
