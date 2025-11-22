@@ -71,7 +71,10 @@ jobs:
       - name: Run tests
         run: |
           xvfb-run -a npm test
-
+      - name: Run tests
+        shell: bash
+        run: |
+          xvfb-run -a npm test
   test-macos:
     needs: lint
     runs-on: macos-latest
