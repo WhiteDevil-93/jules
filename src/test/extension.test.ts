@@ -3,7 +3,13 @@ import * as assert from "assert";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-import { SessionTreeItem, mapApiStateToSessionState, buildFinalPrompt, notifyPlanAwaitingApproval } from "../extension";
+import {
+  SessionTreeItem,
+  mapApiStateToSessionState,
+  buildFinalPrompt,
+  notifyPlanAwaitingApproval,
+  sessionSelectedHandler,
+} from "../extension";
 import * as sinon from "sinon";
 
 suite("Extension Test Suite", () => {
@@ -101,8 +107,8 @@ suite("Extension Test Suite", () => {
       } as any);
 
       assert.ok(item.command);
-      assert.strictEqual(item.command?.command, "jules-extension.showActivities");
-      assert.strictEqual(item.command?.arguments?.[0], "sessions/789");
+      assert.strictEqual(item.command?.command, "jules-extension.sessionSelected");
+      assert.strictEqual((item.command?.arguments?.[0] as any).name, "sessions/789");
     });
   });
 
@@ -289,6 +295,11 @@ suite("Extension Test Suite", () => {
         json: async () => ({
           activities: [
             {
+              name: 'activities/0',
+              originator: 'user',
+              description: 'Please update README with setup steps',
+            },
+            {
               name: 'activities/1',
               planGenerated: { id: 'pg1', steps: [] },
               description: 'Update README.md to include setup instructions',
@@ -316,6 +327,11 @@ suite("Extension Test Suite", () => {
         json: async () => ({
           activities: [
             {
+              name: 'activities/0',
+              originator: 'user',
+              description: 'Please update the README to be more helpful',
+            },
+            {
               name: 'activities/2',
               planGenerated: {
                 id: 'pg2',
@@ -339,6 +355,42 @@ suite("Extension Test Suite", () => {
       assert.ok(messageArg.includes('1. Update README'), 'message should include the step title when steps are present');
 
       fetchStub.restore?.();
+    });
+
+    test("sessionSelectedHandler calls notifyPlanAwaitingApproval for awaiting approval", async () => {
+      const session = { name: 'sessions/approve', title: 'Approve Session', rawState: 'AWAITING_PLAN_APPROVAL' } as any;
+
+      // stub fetch to return a plan activity and stub showInformationMessage to observe calls
+      const fetchStub = (global.fetch as sinon.SinonStub).resolves({
+        ok: true,
+        json: async () => ({
+          activities: [
+            { name: 'activities/0', originator: 'user', description: 'Please update README' },
+            { name: 'activities/1', planGenerated: { id: 'pg1', steps: [] }, description: 'Plan generated but no details available.' },
+          ],
+        }),
+      });
+
+      const showInfoStub = sandbox.stub(vscode.window, 'showInformationMessage').resolves(undefined as any);
+      const ctx = { secrets: { get: sandbox.stub().withArgs('jules-api-key').resolves('fake-api-key') } } as any;
+
+      await sessionSelectedHandler(session, ctx);
+
+      assert.ok(showInfoStub.calledOnce, 'notifyPlanAwaitingApproval should call showInformationMessage');
+
+      fetchStub.restore?.();
+    });
+
+    test("sessionSelectedHandler shows activities for non-approval state", async () => {
+      const session = { name: 'sessions/other', title: 'Other Session', rawState: 'IN_PROGRESS' } as any;
+
+      const execStub = sandbox.stub(vscode.commands, 'executeCommand').resolves(undefined);
+
+      const ctx = { secrets: { get: sandbox.stub().withArgs('jules-api-key').resolves('fake-api-key') } } as any;
+
+      await sessionSelectedHandler(session, ctx);
+
+      assert.ok(execStub.calledOnceWith('jules-extension.showActivities', 'sessions/other'));
     });
   });
 });

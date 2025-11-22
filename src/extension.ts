@@ -468,6 +468,13 @@ export async function notifyPlanAwaitingApproval(
 
     const plan = planActivity.planGenerated;
 
+    // Find the originating user request (first user activity with description)
+    const userRequestActivity = activities.find(
+      (a) => a.originator === "user" && (a.description || a.progressUpdated?.title)
+    );
+    const userRequestDescription =
+      userRequestActivity?.description || userRequestActivity?.progressUpdated?.title || "";
+
     // If steps are missing or empty, prefer using the activity.description
     if (!plan.steps || plan.steps.length === 0) {
       logger.appendLine('[Jules] No plan steps available — falling back to activity.description');
@@ -475,9 +482,12 @@ export async function notifyPlanAwaitingApproval(
 
       logger.appendLine(`[Jules] Plan description: ${planDescription}`);
 
+      const messageWithRequestPrefix = userRequestDescription
+        ? `Request: ${userRequestDescription}\n\n📝 Plan Ready\n\n${planDescription}\n\nApprove this plan?`
+        : `📝 Plan Ready\n\n${planDescription}\n\nApprove this plan?`;
+
       const selection = await vscode.window.showInformationMessage(
-        `📝 Plan Ready\n\n${planDescription}\n\nApprove this plan?`,
-        { modal: true },
+        messageWithRequestPrefix,
         "Approve Plan",
         "View Details"
       );
@@ -496,11 +506,12 @@ export async function notifyPlanAwaitingApproval(
       .map((step) => `${step.index + 1}. ${step.title}\n   ${step.description}`)
       .join("\n\n");
 
-    const message = `📝 Plan Ready (${plan.steps.length} steps)\n\n${stepsText}\n\nApprove this plan?`;
+    const message = userRequestDescription
+      ? `Request: ${userRequestDescription}\n\n📝 Plan Ready (${plan.steps.length} steps)\n\n${stepsText}\n\nApprove this plan?`
+      : `📝 Plan Ready (${plan.steps.length} steps)\n\n${stepsText}\n\nApprove this plan?`;
 
     const selection = await vscode.window.showInformationMessage(
       message,
-      { modal: true },
       "Approve Plan",
       "View Details"
     );
@@ -1104,9 +1115,9 @@ export class SessionTreeItem extends vscode.TreeItem {
     this.iconPath = this.getIcon(session.state, session.rawState);
     this.contextValue = "jules-session";
     this.command = {
-      command: "jules-extension.showActivities",
+      command: "jules-extension.sessionSelected",
       title: "Show Activities",
-      arguments: [session.name],
+      arguments: [session],
     };
   }
 
@@ -1826,6 +1837,27 @@ export function activate(context: vscode.ExtensionContext) {
       }
     }
   );
+  // Handle session selection from the TreeView. If the session requires plan approval,
+  // show the approval notification; otherwise show activities.
+  export async function sessionSelectedHandler(session: Session, ctx: vscode.ExtensionContext) {
+    try {
+      if (!session) return;
+      // If rawState explicitly indicates awaiting plan approval, show the approval UI.
+      if (session.rawState === "AWAITING_PLAN_APPROVAL") {
+        await notifyPlanAwaitingApproval(session, ctx);
+      } else {
+        await vscode.commands.executeCommand("jules-extension.showActivities", session.name);
+      }
+    } catch (err) {
+      console.error("Error in sessionSelected handler:", err);
+    }
+  }
+
+  const sessionSelectedDisposable = vscode.commands.registerCommand(
+    "jules-extension.sessionSelected",
+    async (session: Session) => sessionSelectedHandler(session, context)
+  );
+  context.subscriptions.push(sessionSelectedDisposable);
 
   const refreshActivitiesDisposable = vscode.commands.registerCommand(
     "jules-extension.refreshActivities",
