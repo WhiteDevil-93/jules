@@ -1,0 +1,23 @@
+name: PRレビューへの自動返信
+on:
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  reply_to_review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'google-labs-jules[bot]'
+    steps:
+      - name: レビューコメントへ返信
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '@Jules'
+            })
