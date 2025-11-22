@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { JULES_API_BASE_URL } from './constants';
+import { extractPRUrl } from './githubUtils';
 import { JulesApiClient } from './julesApiClient';
 import { SessionManager } from './sessionManager';
 import { LocalSession, Activity, PlanGenerated } from './types';
@@ -105,7 +106,39 @@ export class PollingManager {
                         this.onPlanAwaitingApproval(session, activity.planGenerated);
                     } else if (activity.sessionCompleted) {
                         await this.sessionManager.updateSessionState(session.name, 'COMPLETED', 'completed');
-                        vscode.window.showInformationMessage(`Session ${session.title} completed!`);
+
+                        let prUrl: string | undefined;
+                        try {
+                            const fullSession = await apiClient.getSession(session.name);
+                            if (fullSession.outputs) {
+                                for (const output of fullSession.outputs) {
+                                    if (output.pullRequest?.url) {
+                                        prUrl = output.pullRequest.url;
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Error fetching session details:', err);
+                        }
+
+                        if (!prUrl && activity.description) {
+                            const extracted = extractPRUrl(activity.description);
+                            if (extracted) {
+                                prUrl = extracted;
+                            }
+                        }
+
+                        if (prUrl) {
+                            const openPr = "Open PR";
+                            vscode.window.showInformationMessage(`Session ${session.title} completed. PR created.`, openPr).then(selection => {
+                                if (selection === openPr) {
+                                    vscode.env.openExternal(vscode.Uri.parse(prUrl!));
+                                }
+                            });
+                        } else {
+                            vscode.window.showInformationMessage(`Session ${session.title} completed!`);
+                        }
                     }
                 }
             }

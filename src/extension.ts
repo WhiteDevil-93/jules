@@ -57,7 +57,7 @@ export function buildFinalPrompt(userPrompt: string): string {
   const config = vscode.workspace.getConfiguration("jules-extension");
   const customPrompt = (config.get<string>("customPrompt") || "").trim();
   if (customPrompt) {
-    return `${customPrompt}\n\n${userPrompt}`;
+    return `${userPrompt}\n\n${customPrompt}`;
   }
   return userPrompt;
 }

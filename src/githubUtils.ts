@@ -62,3 +62,12 @@ export async function createRemoteBranch(
         sha: baseSha
     });
 }
+
+/**
+ * Extracts a Pull Request URL from a text string (e.g., session output).
+ */
+export function extractPRUrl(text: string): string | null {
+    const prUrlRegex = /https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+/;
+    const match = text.match(prUrlRegex);
+    return match ? match[0] : null;
+}
