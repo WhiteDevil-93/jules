@@ -224,10 +224,10 @@ export function registerCommands(context: vscode.ExtensionContext, sessionsProvi
                     if (action === 'Create Remote Branch') {
                         const creationInfo = await getRepoInfoForBranchCreation(logChannel);
                         if (!creationInfo) {
-                            return; // エラーメッセージはヘルパー内で表示済み
+                            return; // Error message is displayed in the helper function.
                         }
 
-                        // リモートブランチを作成
+                        // Create the remote branch
                         try {
                             await vscode.window.withProgress(
                                 {
@@ -380,25 +380,8 @@ export function registerCommands(context: vscode.ExtensionContext, sessionsProvi
                 return;
             }
             try {
-                const sessionResponse = await fetch(
-                    `${JULES_API_BASE_URL}/${sessionId}`,
-                    {
-                        method: "GET",
-                        headers: {
-                            "X-Goog-Api-Key": apiKey,
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
-                if (!sessionResponse.ok) {
-                    const errorText = await sessionResponse.text();
-                    vscode.window.showErrorMessage(
-                        `Session not found: ${sessionResponse.status} ${sessionResponse.statusText} - ${errorText}`
-                    );
-                    return;
-                }
-                const session = (await sessionResponse.json()) as Session;
                 const apiClient = new JulesApiClient(apiKey, JULES_API_BASE_URL);
+                const session = await apiClient.getSession(sessionId);
                 const data = await apiClient.getActivities(sessionId);
                 if (!data.activities || !Array.isArray(data.activities)) {
                     vscode.window.showErrorMessage("Invalid response format from API.");

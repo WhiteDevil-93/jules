@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { Session, SessionState, PRStatusCache } from './types';
 import { JULES_API_BASE_URL } from './constants';
+import { JulesApiClient } from "./julesApiClient";
 
 // GitHub PR status cache to avoid excessive API calls
 const prStatusCache: PRStatusCache = {};
@@ -253,23 +254,8 @@ export async function approvePlan(
                 title: "Approving plan...",
             },
             async () => {
-                const response = await fetch(
-                    `${JULES_API_BASE_URL}/${sessionId}:approvePlan`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "X-Goog-Api-Key": apiKey,
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({}),
-                    }
-                );
-
-                if (!response.ok) {
-                    throw new Error(
-                        `Failed to approve plan: ${response.status} ${response.statusText}`
-                    );
-                }
+                const apiClient = new JulesApiClient(apiKey, JULES_API_BASE_URL);
+                await apiClient.approvePlan(sessionId);
 
                 vscode.window.showInformationMessage("Plan approved successfully!");
 

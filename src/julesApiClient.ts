@@ -61,9 +61,41 @@ export class JulesApiClient {
     }
 
     async sendMessage(sessionId: string, prompt: string): Promise<void> {
-        await this.request<void>(`/${sessionId}:sendMessage`, {
+        const url = `${this.baseUrl}/${sessionId}:sendMessage`;
+        const response = await fetch(url, {
             method: 'POST',
             body: JSON.stringify({ prompt }),
+            headers: {
+                'X-Goog-Api-Key': this.apiKey,
+                'Content-Type': 'application/json',
+            },
         });
+
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => `HTTP ${response.status}`);
+            throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+        // No need to parse a response body for a void-returning function.
+    }
+
+    async getSession(sessionId: string): Promise<Session> {
+        return this.request<Session>(`/${sessionId}`);
+    }
+
+    async approvePlan(sessionId: string): Promise<void> {
+        const url = `${this.baseUrl}/${sessionId}:approvePlan`;
+        const response = await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify({}),
+            headers: {
+                'X-Goog-Api-Key': this.apiKey,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => `HTTP ${response.status}`);
+            throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
     }
 }
