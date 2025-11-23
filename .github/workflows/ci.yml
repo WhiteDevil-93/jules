@@ -64,7 +64,7 @@ jobs:
           path: |
             ~/.vscode-test
             ~/.vscode
-          key: ${{ runner.os }}-vscode-test-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-vscode-test
           restore-keys: |
             ${{ runner.os }}-vscode-test-
 
@@ -110,7 +110,7 @@ jobs:
           path: |
             ~/.vscode-test
             ~/.vscode
-          key: ${{ runner.os }}-vscode-test-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-vscode-test
           restore-keys: |
             ${{ runner.os }}-vscode-test-
 
@@ -153,7 +153,7 @@ jobs:
           path: |
             ~/.vscode-test
             ~/.vscode
-          key: ${{ runner.os }}-vscode-test-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-vscode-test
           restore-keys: |
             ${{ runner.os }}-vscode-test-
 
