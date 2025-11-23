@@ -9,9 +9,7 @@ on:
 jobs:
   feedback-to-jules:
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      issues: write
+
     steps:
       - name: Send feedback to Jules
         uses: actions/github-script@v6
