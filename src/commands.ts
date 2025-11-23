@@ -255,7 +255,8 @@ export function registerCommands(context: vscode.ExtensionContext, sessionsProvi
                                 await getBranchesForSession(selectedSource, apiClient, logChannel, context, true);
                                 logChannel.appendLine('[Jules] Branches cache refreshed after remote branch creation');
                             } catch (error) {
-                                logChannel.appendLine(`[Jules] Failed to refresh branches cache: ${error}`);
+                                const errorMessage = error instanceof Error ? error.message : String(error);
+                                logChannel.appendLine(`[Jules] Failed to refresh branches cache: ${errorMessage}`);
                             }
                         } catch (error) {
                             const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -621,9 +622,10 @@ export function registerCommands(context: vscode.ExtensionContext, sessionsProvi
 
                 vscode.window.showInformationMessage(`Jules cache cleared: ${cacheKeys.length} entries removed`);
                 logChannel.appendLine(`[Jules] Cache cleared: ${cacheKeys.length} entries (1 sources + ${branchCacheKeys.length} branches)`);
-            } catch (error: any) {
-                logChannel.appendLine(`[Jules] Error clearing cache: ${error.message}`);
-                vscode.window.showErrorMessage(`Failed to clear cache: ${error.message}`);
+            } catch (error: unknown) {
+                const message = error instanceof Error ? error.message : String(error);
+                logChannel.appendLine(`[Jules] Error clearing cache: ${message}`);
+                vscode.window.showErrorMessage(`Failed to clear cache: ${message}`);
             }
         }
     );
