@@ -397,24 +397,24 @@ function checkForCompletedSessions(currentSessions: Session[]): Session[] {
 }
 
 function checkForSessionsInState(
-	currentSessions: Session[],
-	targetState: string
-  ): Session[] {
-	const sessionsInState: Session[] = [];
-	for (const session of currentSessions) {
-	  const prevState = previousSessionStates.get(session.name);
-	  if (prevState?.isTerminated) {
-		continue; // Skip terminated sessions
-	  }
-	  if (
-		session.rawState === targetState &&
-		(!prevState || prevState.rawState !== targetState)
-	  ) {
-		sessionsInState.push(session);
-	  }
-	}
-	return sessionsInState;
+  currentSessions: Session[],
+  targetState: string
+): Session[] {
+  const sessionsInState: Session[] = [];
+  for (const session of currentSessions) {
+    const prevState = previousSessionStates.get(session.name);
+    if (prevState?.isTerminated) {
+      continue; // Skip terminated sessions
+    }
+    if (
+      session.rawState === targetState &&
+      (!prevState || prevState.rawState !== targetState)
+    ) {
+      sessionsInState.push(session);
+    }
   }
+  return sessionsInState;
+}
 
 async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
   const result = await vscode.window.showInformationMessage(
@@ -447,18 +447,18 @@ async function notifyPlanAwaitingApproval(
 }
 
 async function notifyUserFeedbackRequired(session: Session): Promise<void> {
-	const selection = await vscode.window.showInformationMessage(
-	  `Jules is waiting for your feedback in session: "${session.title}"`,
-	  VIEW_DETAILS_ACTION
-	);
+  const selection = await vscode.window.showInformationMessage(
+    `Jules is waiting for your feedback in session: "${session.title}"`,
+    VIEW_DETAILS_ACTION
+  );
 
-	if (selection === VIEW_DETAILS_ACTION) {
-	  await vscode.commands.executeCommand(
-		SHOW_ACTIVITIES_COMMAND,
-		session.name
-	  );
-	}
+  if (selection === VIEW_DETAILS_ACTION) {
+    await vscode.commands.executeCommand(
+      SHOW_ACTIVITIES_COMMAND,
+      session.name
+    );
   }
+}
 
 async function updatePreviousStates(
   currentSessions: Session[],
