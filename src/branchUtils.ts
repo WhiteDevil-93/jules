@@ -115,7 +115,11 @@ export async function getBranchesForSession(
         let remoteBranches: string[] = [];
 
         try {
-            const sourceDetail = await apiClient.getSource(selectedSource.name!);
+            const sourceName = selectedSource.name;
+            if (!sourceName) {
+                throw new Error("Selected source is missing a name.");
+            }
+            const sourceDetail = await apiClient.getSource(sourceName);
             if (sourceDetail.githubRepo?.branches) {
                 remoteBranches = sourceDetail.githubRepo.branches.map(b => b.displayName);
                 branches = [...remoteBranches];
