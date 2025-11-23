@@ -1,0 +1,26 @@
+name: Make Draft PR Ready
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  make-ready:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check PR author
+        id: check_author
+        run: |
+          AUTHOR="${{ github.event.pull_request.user.login }}"
+          if [[ $(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]') == *"jules"* ]]; then
+            echo "is_jules=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_jules=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Make PR ready
+        if: steps.check_author.outputs.is_jules == 'true' && github.event.pull_request.draft == true
+        run: gh pr ready ${{ github.event.pull_request.number }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
