@@ -79,7 +79,7 @@ export async function getBranchesForSession(
     apiClient: JulesApiClient,
     outputChannel: vscode.OutputChannel,
     context: vscode.ExtensionContext,
-    forceRefresh: boolean = false
+    options: { forceRefresh?: boolean, showProgress?: boolean } = {}
 ): Promise<{
     branches: string[];
     defaultBranch: string;
@@ -88,13 +88,14 @@ export async function getBranchesForSession(
 }> {
     const sourceId = selectedSource.name || selectedSource.id || '';
     const cacheKey = `jules.branches.${sourceId}`;
+    const { forceRefresh = false, showProgress = true } = options;
 
     // キャッシュチェック（簡潔なログ）
     if (!forceRefresh) {
         const cached = context.globalState.get<BranchesCache>(cacheKey);
 
         if (cached && isCacheValid(cached.timestamp)) {
-            outputChannel.appendLine(`[Jules] Using cached branches (${cached.branches.length} branches)`);
+            outputChannel.appendLine(`[Jules] Using cached branches (${cached.branches.length} branches, last updated: ${new Date(cached.timestamp).toLocaleString()})`);
             return {
                 branches: cached.branches,
                 defaultBranch: cached.defaultBranch,
@@ -108,59 +109,69 @@ export async function getBranchesForSession(
 
     outputChannel.appendLine(`[Jules] Fetching branches from API...`);
 
-    return await vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Notification,
-            title: "Loading branches...",
-            cancellable: false
-        },
-        async () => {
-            let branches: string[] = [];
-            let defaultBranch = DEFAULT_FALLBACK_BRANCH;
-            let remoteBranches: string[] = [];
+    const fetchBranchesLogic = async () => {
+        let branches: string[] = [];
+        let defaultBranch = DEFAULT_FALLBACK_BRANCH;
+        let remoteBranches: string[] = [];
 
-            try {
-                const sourceDetail = await apiClient.getSource(selectedSource.name!);
-                if (sourceDetail.githubRepo?.branches) {
-                    remoteBranches = sourceDetail.githubRepo.branches.map(b => b.displayName);
-                    branches = [...remoteBranches];
-                    defaultBranch = sourceDetail.githubRepo.defaultBranch?.displayName || DEFAULT_FALLBACK_BRANCH;
-                }
-            } catch (error: unknown) {
-                const msg = error instanceof Error ? error.message : String(error);
-                outputChannel.appendLine(`[Jules] Failed to get branches: ${msg}`);
-                branches = [defaultBranch];
+        try {
+            const sourceName = selectedSource.name;
+            if (!sourceName) {
+                throw new Error("Selected source is missing a name.");
             }
-
-            const currentBranch = await getCurrentBranch(outputChannel);
-
-            // 警告は1回だけ
-            if (currentBranch && !remoteBranches.includes(currentBranch)) {
-                outputChannel.appendLine(`[Jules] Warning: Current branch "${currentBranch}" not found on remote`);
-                branches.unshift(currentBranch);
+            const sourceDetail = await apiClient.getSource(sourceName);
+            if (sourceDetail.githubRepo?.branches) {
+                remoteBranches = sourceDetail.githubRepo.branches.map(b => b.displayName);
+                branches = [...remoteBranches];
+                defaultBranch = sourceDetail.githubRepo.defaultBranch?.displayName || DEFAULT_FALLBACK_BRANCH;
             }
-
-            const config = vscode.workspace.getConfiguration('jules');
-            const defaultBranchConfig = config.get<string>('defaultBranch', 'current');
-
-            let selectedDefaultBranch = defaultBranch;
-            if (defaultBranchConfig === 'current' && currentBranch) {
-                selectedDefaultBranch = currentBranch;
-            } else if (defaultBranchConfig === 'main') {
-                selectedDefaultBranch = branches.includes('main') ? 'main' : defaultBranch;
-            }
-
-            const cache: BranchesCache = {
-                branches,
-                defaultBranch: selectedDefaultBranch,
-                remoteBranches,
-                currentBranch,
-                timestamp: Date.now()
-            };
-            await context.globalState.update(cacheKey, cache);
-            outputChannel.appendLine(`[Jules] Cached ${branches.length} branches`);
-
-            return { branches, defaultBranch: selectedDefaultBranch, currentBranch, remoteBranches };
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            outputChannel.appendLine(`[Jules] Failed to get branches: ${msg}`);
+            branches = [defaultBranch];
         }
-    );
+
+        const currentBranch = await getCurrentBranch(outputChannel);
+
+        // 警告は1回だけ
+        if (currentBranch && !remoteBranches.includes(currentBranch)) {
+            outputChannel.appendLine(`[Jules] Warning: Current branch "${currentBranch}" not found on remote`);
+            branches.unshift(currentBranch);
+        }
+
+        const config = vscode.workspace.getConfiguration('jules');
+        const defaultBranchConfig = config.get<string>('defaultBranch', 'current');
+
+        let selectedDefaultBranch = defaultBranch;
+        if (defaultBranchConfig === 'current' && currentBranch) {
+            selectedDefaultBranch = currentBranch;
+        } else if (defaultBranchConfig === 'main') {
+            selectedDefaultBranch = branches.includes('main') ? 'main' : defaultBranch;
+        }
+
+        const cache: BranchesCache = {
+            branches,
+            defaultBranch: selectedDefaultBranch,
+            remoteBranches,
+            currentBranch,
+            timestamp: Date.now()
+        };
+        await context.globalState.update(cacheKey, cache);
+        outputChannel.appendLine(`[Jules] Cached ${branches.length} branches`);
+
+        return { branches, defaultBranch: selectedDefaultBranch, currentBranch, remoteBranches };
+    };
+
+    if (showProgress) {
+        return vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: "Loading branches...",
+                cancellable: false
+            },
+            fetchBranchesLogic
+        );
+    } else {
+        return fetchBranchesLogic();
+    }
 }
