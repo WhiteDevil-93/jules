@@ -159,7 +159,7 @@ export async function getBranchesForSession(
     };
 
     if (showProgress) {
-        return await vscode.window.withProgress(
+        return vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Notification,
                 title: "Loading branches...",

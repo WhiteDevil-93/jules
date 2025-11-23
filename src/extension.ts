@@ -696,8 +696,8 @@ class JulesSessionsProvider
       // --- Update the cache ---
       this.sessionsCache = allSessionsMapped;
       if (isBackground) {
-        // エラーは_refreshBranchCacheInBackground内で処理されるため、fire-and-forgetで呼び出します。
-        // void演算子で意図的にPromiseを無視し、floating promiseに関するlintエラーを回避します。
+        // Errors are handled inside _refreshBranchCacheInBackground, so we call it fire-and-forget.
+        // The void operator is used to intentionally ignore the promise and avoid lint errors about floating promises.
         void this._refreshBranchCacheInBackground(apiKey);
       }
     } catch (error) {
