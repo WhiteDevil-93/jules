@@ -24,7 +24,7 @@ Jules Extensionは、GoogleのAIコーディングエージェント**Jules**を
 | **APIキーの設定** | 初回利用時にAPIキーを設定し、Julesアカウントに接続します。キーはVSCodeのSecretStorageに安全に保存され、以降のリクエストで自動的に使用されます。 | `Jules: Set API Key` |
 | **APIキーの検証** | API接続をテストし、キーが有効で正常に機能していることを確認します。 | `Jules: Verify API Key` |
 | **ソースのリスト表示** | Julesが作業可能なデータソースを閲覧します。 | `Jules: List Sources` |
-| **セッション管理** | `> Jules: Create Session`コマンドで、新しいコーディングタスクをJulesに割り当てます。過去のセッションも一覧表示され、いつでも作業を再開したり、完了したタスクの履歴を確認したりできます。 | `Jules: Create Session` |
+| **セッション管理** | `Jules: Create Session`コマンドで、新しいコーディングタスクをJulesに割り当てます。過去のセッションも一覧表示され、いつでも作業を再開したり、完了したタスクの履歴を確認したりできます。 | `Jules: Create Session` |
 | **リアルタイム監視** | Julesの現在の作業状況（`Running`, `Active`, `Done`など）を、専用のサイドバービューで一目で確認できます。もうブラウザとエディタを行き来する必要はありません。 | `julesSessionsView` (View) |
 | **進捗の更新** | Julesがどこまで進んだか気になったら、`↻`（更新）ボタンをクリックするだけで、最新のセッション状況とアクティビティリストを即座に取得・表示します。 | `Jules: Refresh Sessions` |
 | **アクティビティ表示** | セッションを選択すると、Julesが実行したコマンド、編集したファイル、その思考プロセスなどの詳細なログを確認できます。まるでJulesの心の中を覗いているかのような、透明性の高い開発体験を提供します。 | `Jules: Show Activities` |
@@ -131,9 +131,9 @@ OAuthサインインへの移行をお願いします。
 ## クイックスタート
 
 1. `Ctrl + Shift + P`（または`Cmd + Shift + P`）を押して、コマンドパレットを開きます。
-2. `> Jules: Set Jules API Key`を実行し、APIキーを入力します。
+2. `Jules: Set Jules API Key`を実行し、APIキーを入力します。
 3. サイドバーの`$(robot)`アイコンをクリックして、Julesセッションビューを開きます。
-4. `> Jules: Create Jules Session`を実行して、最初のコーディングセッションを開始しましょう！
+4. `Jules: Create Jules Session`を実行して、最初のコーディングセッションを開始しましょう！
 
 ## ⚠️ 注意事項
 
