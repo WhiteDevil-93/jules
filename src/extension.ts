@@ -406,6 +406,23 @@ function checkForPlansAwaitingApproval(currentSessions: Session[]): Session[] {
   return sessionsAwaitingApproval;
 }
 
+function checkForUserFeedbackRequests(currentSessions: Session[]): Session[] {
+	const sessionsAwaitingFeedback: Session[] = [];
+	for (const session of currentSessions) {
+	  const prevState = previousSessionStates.get(session.name);
+	  if (prevState?.isTerminated) {
+		continue; // Skip terminated sessions
+	  }
+	  if (
+		session.rawState === "AWAITING_USER_FEEDBACK" &&
+		(!prevState || prevState.rawState !== "AWAITING_USER_FEEDBACK")
+	  ) {
+		sessionsAwaitingFeedback.push(session);
+	  }
+	}
+	return sessionsAwaitingFeedback;
+  }
+
 async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
   const result = await vscode.window.showInformationMessage(
     `Session "${session.title}" has completed and created a PR!`,
@@ -435,6 +452,20 @@ async function notifyPlanAwaitingApproval(
     );
   }
 }
+
+async function notifyUserFeedbackRequired(session: Session): Promise<void> {
+	const selection = await vscode.window.showInformationMessage(
+	  `Jules is waiting for your feedback in session: "${session.title}"`,
+	  "View Details"
+	);
+
+	if (selection === "View Details") {
+	  await vscode.commands.executeCommand(
+		"jules-extension.showActivities",
+		session.name
+	  );
+	}
+  }
 
 async function updatePreviousStates(
   currentSessions: Session[],
@@ -663,6 +694,23 @@ class JulesSessionsProvider
         }
       }
 
+      // --- Check for user feedback requests ---
+      const feedbackRequests =
+        checkForUserFeedbackRequests(allSessionsMapped);
+      if (feedbackRequests.length > 0) {
+        console.log(
+          `Jules: Found ${feedbackRequests.length} sessions awaiting user feedback`
+        );
+        for (const session of feedbackRequests) {
+          notifyUserFeedbackRequired(session).catch((error) => {
+            console.error(
+              "Jules: Failed to show user feedback notification",
+              error
+            );
+          });
+        }
+      }
+
       // --- Check for completed sessions (PR created) ---
       const completedSessions = checkForCompletedSessions(allSessionsMapped);
       if (completedSessions.length > 0) {
@@ -788,6 +836,9 @@ export class SessionTreeItem extends vscode.TreeItem {
   private getIcon(state: string, rawState?: string): vscode.ThemeIcon {
     if (rawState === "AWAITING_PLAN_APPROVAL") {
       return new vscode.ThemeIcon("clock");
+    }
+    if (rawState === "AWAITING_USER_FEEDBACK") {
+      return new vscode.ThemeIcon("comment-discussion");
     }
     switch (state) {
       case "RUNNING":
