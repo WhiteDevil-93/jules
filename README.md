@@ -30,12 +30,12 @@ Jules Extensionは、GoogleのAIコーディングエージェント**Jules**を
 | **アクティビティ表示** | セッションを選択すると、Julesが実行したコマンド、編集したファイル、その思考プロセスなどの詳細なログを確認できます。まるでJulesの心の中を覗いているかのような、透明性の高い開発体験を提供します。     | `Show Jules Activities`                  |
 | **アクティビティの更新** | 現在のセッションのアクティビティビューを更新し、最新の進捗を確認します。                                                                                                                       | `Refresh Jules Activities`               |
 | **メッセージの送信**   | アクティブなJulesセッションにフォローアップメッセージを送信し、追加の指示やフィードバックを与えます。                                                                                             | `Send Message to Jules Session`          |
-| **計画の承認**         | Julesが生成した計画を実行前にレビューし、承認します。                                                                                                                                              | `Jules: Approve Jules Plan`              |
-| **設定を開く**         | Jules拡張機能の設定を開きます。                                                                                                                                                                  | `Jules: Open Jules Settings`             |
-| **セッションの削除**   | ローカルキャッシュからセッションを削除します。                                                                                                                                                   | `Jules: Delete Session from Local Cache` |
-| **GitHubトークンの設定** | PRのステータスを確認するためのGitHubパーソナルアクセストークンを設定します。                                                                                                                   | `Jules: Set GitHub Token (for PR Status)`|
-| **キャッシュのクリア** | Jules拡張機能のキャッシュをクリアします。                                                                                                                                                      | `Jules: Clear Jules Cache`               |
-| **GitHubへのサインイン** | GitHubアカウントにサインインします。                                                                                                                                                           | `Jules: Sign in to GitHub`               |
+| **計画の承認**         | Julesが生成した計画を実行前にレビューし、承認します。                                                                                                                                              | `Approve Jules Plan`                     |
+| **設定を開く**         | Jules拡張機能の設定を開きます。                                                                                                                                                                  | `Open Jules Settings`                    |
+| **セッションの削除**   | ローカルキャッシュからセッションを削除します。                                                                                                                                                   | `Delete Session from Local Cache`        |
+| **GitHubトークンの設定** | PRのステータスを確認するためのGitHubパーソナルアクセストークンを設定します。                                                                                                                   | `Set GitHub Token (for PR Status)`       |
+| **キャッシュのクリア** | Jules拡張機能のキャッシュをクリアします。                                                                                                                                                      | `Clear Jules Cache`                      |
+| **GitHubへのサインイン** | GitHubアカウントにサインインします。                                                                                                                                                           | `Sign in to GitHub`                      |
 
 ## 📦 インストール
 
@@ -95,12 +95,12 @@ Jules Extensionを使用するには、Jules APIキーが必要です。以下�
 
 ### OAuthサインイン (推奨) ✅
 
-`Jules: Sign in to GitHub`コマンドを使用してください。
+`Sign in to GitHub`コマンドを使用してください。
 
 **使い方:**
 
 1. コマンドパレット（`Cmd+Shift+P`）を開きます。
-2. `Jules: Sign in to GitHub`を実行します。
+2. `Sign in to GitHub`を実行します。
 3. ブラウザで認証します。
 
 ---
@@ -125,8 +125,8 @@ OAuthサインインへの移行をお願いします。
 
 ### 非推奨の設定 ⚠️
 
-- `jules-extension.githubToken`: この設定は非推奨です。代わりに`Jules: Set GitHub Token`コマンドを使用してください。
-- `jules.githubPat`: この設定は非推奨です。代わりに`Jules: Sign in to GitHub`コマンドを使用してください。
+- `jules-extension.githubToken`: この設定は非推奨です。代わりに`Set GitHub Token (for PR Status)`コマンドを使用してください。
+- `jules.githubPat`: この設定は非推奨です。代わりに`Sign in to GitHub`コマンドを使用してください。
 
 ## クイックスタート
 
