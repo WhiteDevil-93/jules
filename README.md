@@ -21,21 +21,21 @@ Jules Extensionは、GoogleのAIコーディングエージェント**Jules**を
 
 | 機能                   | 説明                                                                                                                                                                                             | コマンド / アイコン                      |
 | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-| **APIキーの設定**      | 初回利用時にAPIキーを設定し、Julesアカウントに接続します。キーはVSCodeのSecretStorageに安全に保存され、以降のリクエストで自動的に使用されます。                                                       | `> Set Jules API Key`                      |
-| **APIキーの検証**      | API接続をテストし、キーが有効で正常に機能していることを確認します。                                                                                                                               | `> Verify Jules API Key`                   |
-| **ソースのリスト表示** | Julesが作業可能なデータソースを閲覧します。                                                                                                                                                      | `> List Jules Sources`                     |
-| **セッション管理**     | `> Create Jules Session`コマンドで、新しいコーディングタスクをJulesに割り当てます。過去のセッションも一覧表示され、いつでも作業を再開したり、完了したタスクの履歴を確認したりできます。                | `> Create Jules Session`                   |
+| **APIキーの設定**      | 初回利用時にAPIキーを設定し、Julesアカウントに接続します。キーはVSCodeのSecretStorageに安全に保存され、以降のリクエストで自動的に使用されます。                                                       | `Jules: Set Jules API Key`               |
+| **APIキーの検証**      | API接続をテストし、キーが有効で正常に機能していることを確認します。                                                                                                                               | `Jules: Verify Jules API Key`            |
+| **ソースのリスト表示** | Julesが作業可能なデータソースを閲覧します。                                                                                                                                                      | `Jules: List Jules Sources`              |
+| **セッション管理**     | `Jules: Create Jules Session`コマンドで、新しいコーディングタスクをJulesに割り当てます。過去のセッションも一覧表示され、いつでも作業を再開したり、完了したタスクの履歴を確認したりできます。                | `Jules: Create Jules Session`            |
 | **リアルタイム監視**   | Julesの現在の作業状況（`Running`, `Active`, `Done`など）を、専用のサイドバービューで一目で確認できます。もうブラウザとエディタを行き来する必要はありません。                                         | `julesSessionsView` (View)               |
-| **進捗の更新**         | Julesがどこまで進んだか気になったら、`↻`（更新）ボタンをクリックするだけで、最新のセッション状況とアクティビティリストを即座に取得・表示します。                                                     | `> Refresh Jules Sessions`                 |
-| **アクティビティ表示** | セッションを選択すると、Julesが実行したコマンド、編集したファイル、その思考プロセスなどの詳細なログを確認できます。まるでJulesの心の中を覗いているかのような、透明性の高い開発体験を提供します。     | `> Show Jules Activities`                  |
-| **アクティビティの更新** | 現在のセッションのアクティビティビューを更新し、最新の進捗を確認します。                                                                                                                       | `> Refresh Jules Activities`               |
-| **メッセージの送信**   | アクティブなJulesセッションにフォローアップメッセージを送信し、追加の指示やフィードバックを与えます。                                                                                             | `> Send Message to Jules Session`          |
-| **計画の承認**         | Julesが生成した計画を実行前にレビューし、承認します。                                                                                                                                              | `> Approve Jules Plan`                     |
-| **設定を開く**         | Jules拡張機能の設定を開きます。                                                                                                                                                                  | `> Open Jules Settings`                    |
-| **セッションの削除**   | ローカルキャッシュからセッションを削除します。                                                                                                                                                   | `> Delete Session from Local Cache`        |
-| **GitHubトークンの設定** | PRのステータスを確認するためのGitHubパーソナルアクセストークンを設定します。                                                                                                                   | `> Set GitHub Token (for PR Status)`       |
-| **キャッシュのクリア** | Jules拡張機能のキャッシュをクリアします。                                                                                                                                                      | `> Clear Jules Cache`                      |
-| **GitHubへのサインイン** | GitHubアカウントにサインインします。                                                                                                                                                           | `> Sign in to GitHub`                      |
+| **進捗の更新**         | Julesがどこまで進んだか気になったら、`↻`（更新）ボタンをクリックするだけで、最新のセッション状況とアクティビティリストを即座に取得・表示します。                                                     | `Jules: Refresh Jules Sessions`          |
+| **アクティビティ表示** | セッションを選択すると、Julesが実行したコマンド、編集したファイル、その思考プロセスなどの詳細なログを確認できます。まるでJulesの心の中を覗いているかのような、透明性の高い開発体験を提供します。     | `Jules: Show Jules Activities`           |
+| **アクティビティの更新** | 現在のセッションのアクティビティビューを更新し、最新の進捗を確認します。                                                                                                                       | `Jules: Refresh Jules Activities`        |
+| **メッセージの送信**   | アクティブなJulesセッションにフォローアップメッセージを送信し、追加の指示やフィードバックを与えます。                                                                                             | `Jules: Send Message to Jules Session`   |
+| **計画の承認**         | Julesが生成した計画を実行前にレビューし、承認します。                                                                                                                                              | `Jules: Approve Jules Plan`              |
+| **設定を開く**         | Jules拡張機能の設定を開きます。                                                                                                                                                                  | `Jules: Open Jules Settings`             |
+| **セッションの削除**   | ローカルキャッシュからセッションを削除します。                                                                                                                                                   | `Jules: Delete Session from Local Cache` |
+| **GitHubトークンの設定** | PRのステータスを確認するためのGitHubパーソナルアクセストークンを設定します。                                                                                                                   | `Jules: Set GitHub Token (for PR Status)`|
+| **キャッシュのクリア** | Jules拡張機能のキャッシュをクリアします。                                                                                                                                                      | `Jules: Clear Jules Cache`               |
+| **GitHubへのサインイン** | GitHubアカウントにサインインします。                                                                                                                                                           | `Jules: Sign in to GitHub`               |
 
 ## 📦 インストール
 
@@ -95,12 +95,12 @@ Jules Extensionを使用するには、Jules APIキーが必要です。以下�
 
 ### OAuthサインイン (推奨) ✅
 
-`Sign in to GitHub`コマンドを使用してください。
+`Jules: Sign in to GitHub`コマンドを使用してください。
 
 **使い方:**
 
 1. コマンドパレット（`Cmd+Shift+P`）を開きます。
-2. `Sign in to GitHub`を実行します。
+2. `Jules: Sign in to GitHub`を実行します。
 3. ブラウザで認証します。
 
 ---
@@ -125,15 +125,15 @@ OAuthサインインへの移行をお願いします。
 
 ### 非推奨の設定 ⚠️
 
-- `jules-extension.githubToken`: この設定は非推奨です。代わりに`Set GitHub Token (for PR Status)`コマンドを使用してください。
-- `jules.githubPat`: この設定は非推奨です。代わりに`Sign in to GitHub`コマンドを使用してください。
+- `jules-extension.githubToken`: この設定は非推奨です。代わりに`Jules: Set GitHub Token (for PR Status)`コマンドを使用してください。
+- `jules.githubPat`: この設定は非推奨です。代わりに`Jules: Sign in to GitHub`コマンドを使用してください。
 
 ## クイックスタート
 
 1. `Ctrl + Shift + P`（または`Cmd + Shift + P`）を押して、コマンドパレットを開きます。
-2. `> Set Jules API Key`を実行し、APIキーを入力します。
+2. `Jules: Set Jules API Key`を実行し、APIキーを入力します。
 3. サイドバーの`$(robot)`アイコンをクリックして、Julesセッションビューを開きます。
-4. `> Create Jules Session`を実行して、最初のコーディングセッションを開始しましょう！
+4. `Jules: Create Jules Session`を実行して、最初のコーディングセッションを開始しましょう！
 
 ## ⚠️ 注意事項
 
