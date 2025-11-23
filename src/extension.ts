@@ -15,6 +15,13 @@ import { SourcesCache, isCacheValid } from './cache';
 
 // Constants
 const JULES_API_BASE_URL = "https://jules.googleapis.com/v1alpha";
+const VIEW_DETAILS_ACTION = 'View Details';
+const SHOW_ACTIVITIES_COMMAND = 'jules-extension.showActivities';
+
+const SESSION_STATE = {
+  AWAITING_PLAN_APPROVAL: "AWAITING_PLAN_APPROVAL",
+  AWAITING_USER_FEEDBACK: "AWAITING_USER_FEEDBACK",
+};
 
 // GitHub PR status cache to avoid excessive API calls
 interface PRStatusCache {
@@ -389,38 +396,24 @@ function checkForCompletedSessions(currentSessions: Session[]): Session[] {
   return completedSessions;
 }
 
-function checkForPlansAwaitingApproval(currentSessions: Session[]): Session[] {
-  const sessionsAwaitingApproval: Session[] = [];
-  for (const session of currentSessions) {
-    const prevState = previousSessionStates.get(session.name);
-    if (prevState?.isTerminated) {
-      continue; // Skip terminated sessions
-    }
-    if (
-      session.rawState === "AWAITING_PLAN_APPROVAL" &&
-      (!prevState || prevState.rawState !== "AWAITING_PLAN_APPROVAL")
-    ) {
-      sessionsAwaitingApproval.push(session);
-    }
-  }
-  return sessionsAwaitingApproval;
-}
-
-function checkForUserFeedbackRequests(currentSessions: Session[]): Session[] {
-	const sessionsAwaitingFeedback: Session[] = [];
+function checkForSessionsInState(
+	currentSessions: Session[],
+	targetState: string
+  ): Session[] {
+	const sessionsInState: Session[] = [];
 	for (const session of currentSessions) {
 	  const prevState = previousSessionStates.get(session.name);
 	  if (prevState?.isTerminated) {
 		continue; // Skip terminated sessions
 	  }
 	  if (
-		session.rawState === "AWAITING_USER_FEEDBACK" &&
-		(!prevState || prevState.rawState !== "AWAITING_USER_FEEDBACK")
+		session.rawState === targetState &&
+		(!prevState || prevState.rawState !== targetState)
 	  ) {
-		sessionsAwaitingFeedback.push(session);
+		sessionsInState.push(session);
 	  }
 	}
-	return sessionsAwaitingFeedback;
+	return sessionsInState;
   }
 
 async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
@@ -440,14 +433,14 @@ async function notifyPlanAwaitingApproval(
   const selection = await vscode.window.showInformationMessage(
     `Jules has a plan ready for your approval in session: "${session.title}"`,
     "Approve Plan",
-    "View Details"
+    VIEW_DETAILS_ACTION
   );
 
   if (selection === "Approve Plan") {
     await approvePlan(session.name, context);
-  } else if (selection === "View Details") {
+  } else if (selection === VIEW_DETAILS_ACTION) {
     await vscode.commands.executeCommand(
-      "jules-extension.showActivities",
+      SHOW_ACTIVITIES_COMMAND,
       session.name
     );
   }
@@ -456,12 +449,12 @@ async function notifyPlanAwaitingApproval(
 async function notifyUserFeedbackRequired(session: Session): Promise<void> {
 	const selection = await vscode.window.showInformationMessage(
 	  `Jules is waiting for your feedback in session: "${session.title}"`,
-	  "View Details"
+	  VIEW_DETAILS_ACTION
 	);
 
-	if (selection === "View Details") {
+	if (selection === VIEW_DETAILS_ACTION) {
 	  await vscode.commands.executeCommand(
-		"jules-extension.showActivities",
+		SHOW_ACTIVITIES_COMMAND,
 		session.name
 	  );
 	}
@@ -677,39 +670,19 @@ class JulesSessionsProvider
         state: mapApiStateToSessionState(session.state),
       }));
 
-      // --- Check for plans awaiting approval ---
-      const plansAwaitingApproval =
-        checkForPlansAwaitingApproval(allSessionsMapped);
-      if (plansAwaitingApproval.length > 0) {
-        console.log(
-          `Jules: Found ${plansAwaitingApproval.length} sessions awaiting plan approval`
-        );
-        for (const session of plansAwaitingApproval) {
-          notifyPlanAwaitingApproval(session, this.context).catch((error) => {
-            console.error(
-              "Jules: Failed to show plan approval notification",
-              error
-            );
-          });
-        }
-      }
+      this.processSessionNotifications(
+        allSessionsMapped,
+        SESSION_STATE.AWAITING_PLAN_APPROVAL,
+        (session) => notifyPlanAwaitingApproval(session, this.context),
+        "plan approval"
+      );
 
-      // --- Check for user feedback requests ---
-      const feedbackRequests =
-        checkForUserFeedbackRequests(allSessionsMapped);
-      if (feedbackRequests.length > 0) {
-        console.log(
-          `Jules: Found ${feedbackRequests.length} sessions awaiting user feedback`
-        );
-        for (const session of feedbackRequests) {
-          notifyUserFeedbackRequired(session).catch((error) => {
-            console.error(
-              "Jules: Failed to show user feedback notification",
-              error
-            );
-          });
-        }
-      }
+      this.processSessionNotifications(
+        allSessionsMapped,
+        SESSION_STATE.AWAITING_USER_FEEDBACK,
+        notifyUserFeedbackRequired,
+        "user feedback"
+      );
 
       // --- Check for completed sessions (PR created) ---
       const completedSessions = checkForCompletedSessions(allSessionsMapped);
@@ -748,6 +721,28 @@ class JulesSessionsProvider
       `Jules: refresh() called (isBackground: ${isBackground}), starting fetch.`
     );
     await this.fetchAndProcessSessions(isBackground);
+  }
+
+  private processSessionNotifications(
+    sessions: Session[],
+    state: string,
+    notifier: (session: Session) => Promise<void>,
+    notificationType: string
+  ) {
+    const sessionsToNotify = checkForSessionsInState(sessions, state);
+    if (sessionsToNotify.length > 0) {
+      console.log(
+        `Jules: Found ${sessionsToNotify.length} sessions awaiting ${notificationType}`
+      );
+      for (const session of sessionsToNotify) {
+        notifier(session).catch((error) => {
+          console.error(
+            `Jules: Failed to show ${notificationType} notification for session '${session.name}' (${session.title})`,
+            error
+          );
+        });
+      }
+    }
   }
 
   getTreeItem(element: vscode.TreeItem): vscode.TreeItem {
@@ -827,17 +822,17 @@ export class SessionTreeItem extends vscode.TreeItem {
     this.iconPath = this.getIcon(session.state, session.rawState);
     this.contextValue = "jules-session";
     this.command = {
-      command: "jules-extension.showActivities",
+      command: SHOW_ACTIVITIES_COMMAND,
       title: "Show Activities",
       arguments: [session.name],
     };
   }
 
   private getIcon(state: string, rawState?: string): vscode.ThemeIcon {
-    if (rawState === "AWAITING_PLAN_APPROVAL") {
+    if (rawState === SESSION_STATE.AWAITING_PLAN_APPROVAL) {
       return new vscode.ThemeIcon("clock");
     }
-    if (rawState === "AWAITING_USER_FEEDBACK") {
+    if (rawState === SESSION_STATE.AWAITING_USER_FEEDBACK) {
       return new vscode.ThemeIcon("comment-discussion");
     }
     switch (state) {
