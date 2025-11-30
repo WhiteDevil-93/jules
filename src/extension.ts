@@ -425,12 +425,84 @@ async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
   }
 }
 
+async function fetchPlanFromActivities(
+  sessionId: string,
+  apiKey: string
+): Promise<Plan | null> {
+  try {
+    const response = await fetch(
+      `${JULES_API_BASE_URL}/${sessionId}/activities`,
+      {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`Jules: Failed to fetch activities for plan: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as ActivitiesResponse;
+    if (!data.activities || !Array.isArray(data.activities)) {
+      return null;
+    }
+
+    // Find the latest planGenerated activity
+    const planActivity = data.activities.find((a) => a.planGenerated);
+    return planActivity?.planGenerated?.plan || null;
+  } catch (error) {
+    console.error(`Jules: Error fetching plan from activities: ${error}`);
+    return null;
+  }
+}
+
+function formatPlanForNotification(plan: Plan): string {
+  const parts: string[] = [];
+  if (plan.title) {
+    parts.push(`📋 ${plan.title}`);
+  }
+  if (plan.steps && plan.steps.length > 0) {
+    const stepsPreview = plan.steps.slice(0, 5);
+    stepsPreview.forEach((step, index) => {
+      // Truncate long steps for notification display
+      const truncatedStep = step.length > 80 ? step.substring(0, 77) + '...' : step;
+      parts.push(`${index + 1}. ${truncatedStep}`);
+    });
+    if (plan.steps.length > 5) {
+      parts.push(`... and ${plan.steps.length - 5} more steps`);
+    }
+  }
+  return parts.join('\n');
+}
+
 async function notifyPlanAwaitingApproval(
   session: Session,
   context: vscode.ExtensionContext
 ): Promise<void> {
+  // Fetch plan details from activities
+  const apiKey = await context.secrets.get("jules-api-key");
+  let planDetails = '';
+
+  if (apiKey) {
+    const plan = await fetchPlanFromActivities(session.name, apiKey);
+    if (plan) {
+      planDetails = formatPlanForNotification(plan);
+    }
+  }
+
+  // Build notification message with plan content
+  let message = `Jules has a plan ready for your approval in session: "${session.title}"`;
+  if (planDetails) {
+    message += `\n\n${planDetails}`;
+  }
+
   const selection = await vscode.window.showInformationMessage(
-    `Jules has a plan ready for your approval in session: "${session.title}"`,
+    message,
+    { modal: true },
     "Approve Plan",
     VIEW_DETAILS_ACTION
   );
