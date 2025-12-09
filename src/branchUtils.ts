@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { JulesApiClient } from './julesApiClient';
 import { Source as SourceType } from './types';
 import { BranchesCache, isCacheValid } from './cache';
+import { parseGitHubUrl } from './githubUtils';
 
 const DEFAULT_FALLBACK_BRANCH = 'main';
 
@@ -62,6 +63,46 @@ export async function getCurrentBranch(outputChannel: vscode.OutputChannel): Pro
         return head.name || null;
     } catch (error) {
         outputChannel.appendLine(`Error getting current branch: ${error}`);
+        return null;
+    }
+}
+
+async function getWorkspaceGitHubRepo(outputChannel: vscode.OutputChannel): Promise<{ owner: string; repo: string } | null> {
+    try {
+        const gitExtension = vscode.extensions.getExtension('vscode.git');
+        if (!gitExtension) {
+            outputChannel.appendLine('Git extension not available');
+            return null;
+        }
+
+        const git = gitExtension.exports.getAPI(1);
+        if (!git || git.repositories.length === 0) {
+            outputChannel.appendLine('No git repositories found');
+            return null;
+        }
+
+        const repository = git.repositories[0];
+        const remote = repository.state.remotes.find((r: { name: string; fetchUrl?: string; pushUrl?: string }) => r.name === 'origin');
+        if (!remote) {
+            outputChannel.appendLine('No origin remote found');
+            return null;
+        }
+
+        const remoteUrl = remote.fetchUrl || remote.pushUrl;
+        if (!remoteUrl) {
+            outputChannel.appendLine('No remote URL found for origin');
+            return null;
+        }
+
+        const parsed = parseGitHubUrl(remoteUrl);
+        if (!parsed) {
+            outputChannel.appendLine('Failed to parse GitHub remote URL');
+            return null;
+        }
+
+        return { owner: parsed.owner.toLowerCase(), repo: parsed.repo.toLowerCase() };
+    } catch (error) {
+        outputChannel.appendLine(`Error getting workspace GitHub repo: ${error}`);
         return null;
     }
 }
@@ -144,7 +185,15 @@ export async function getBranchesForSession(
 
         let selectedDefaultBranch = defaultBranch;
         if (defaultBranchConfig === 'current' && currentBranch) {
-            selectedDefaultBranch = currentBranch;
+            const workspaceRepo = await getWorkspaceGitHubRepo(outputChannel);
+            const sourceRepo = selectedSource.githubRepo;
+            const isRepoMatched = !!workspaceRepo && !!sourceRepo?.owner && !!sourceRepo?.repo &&
+                workspaceRepo.owner === sourceRepo.owner.toLowerCase() &&
+                workspaceRepo.repo === sourceRepo.repo.toLowerCase();
+
+            if (isRepoMatched) {
+                selectedDefaultBranch = currentBranch;
+            }
         } else if (defaultBranchConfig === 'main') {
             selectedDefaultBranch = branches.includes('main') ? 'main' : defaultBranch;
         }
