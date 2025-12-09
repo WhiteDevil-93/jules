@@ -81,8 +81,30 @@ async function getWorkspaceGitHubRepo(outputChannel: vscode.OutputChannel): Prom
             return null;
         }
 
-        const repository = git.repositories[0];
-        const remote = repository.state.remotes.find((r: { name: string; fetchUrl?: string; pushUrl?: string }) => r.name === 'origin');
+        let repository;
+        if (git.repositories.length === 1) {
+            repository = git.repositories[0];
+        } else {
+            // Multi-root workspace: let user select repository
+            interface RepoItem extends vscode.QuickPickItem {
+                repo: any;
+            }
+            const repoItems: RepoItem[] = git.repositories.map((repo: any, index: number) => ({
+                label: repo.rootUri.fsPath.split('/').pop() || `Repository ${index + 1}`,
+                description: repo.rootUri.fsPath,
+                repo
+            }));
+            const selected = await vscode.window.showQuickPick(repoItems, {
+                placeHolder: 'Select a Git repository'
+            });
+            if (!selected) {
+                outputChannel.appendLine('No repository selected');
+                return null;
+            }
+            repository = selected.repo;
+        }
+
+        const remote = repository.state.remotes.find((r: vscode.git.Remote) => r.name === 'origin');
         if (!remote) {
             outputChannel.appendLine('No origin remote found');
             return null;
@@ -187,7 +209,7 @@ export async function getBranchesForSession(
         if (defaultBranchConfig === 'current' && currentBranch) {
             const workspaceRepo = await getWorkspaceGitHubRepo(outputChannel);
             const sourceRepo = selectedSource.githubRepo;
-            const isRepoMatched = !!workspaceRepo && !!sourceRepo?.owner && !!sourceRepo?.repo &&
+            const isRepoMatched = workspaceRepo && sourceRepo &&
                 workspaceRepo.owner === sourceRepo.owner.toLowerCase() &&
                 workspaceRepo.repo === sourceRepo.repo.toLowerCase();
 
