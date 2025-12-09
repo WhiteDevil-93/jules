@@ -18,6 +18,10 @@ const JULES_API_BASE_URL = "https://jules.googleapis.com/v1alpha";
 const VIEW_DETAILS_ACTION = 'View Details';
 const SHOW_ACTIVITIES_COMMAND = 'jules-extension.showActivities';
 
+// Plan notification display constants
+const MAX_PLAN_STEPS_IN_NOTIFICATION = 5;
+const MAX_PLAN_STEP_LENGTH = 80;
+
 const SESSION_STATE = {
   AWAITING_PLAN_APPROVAL: "AWAITING_PLAN_APPROVAL",
   AWAITING_USER_FEEDBACK: "AWAITING_USER_FEEDBACK",
@@ -425,12 +429,86 @@ async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
   }
 }
 
+async function fetchPlanFromActivities(
+  sessionId: string,
+  apiKey: string
+): Promise<Plan | null> {
+  try {
+    const response = await fetch(
+      `${JULES_API_BASE_URL}/${sessionId}/activities`,
+      {
+        method: "GET",
+        headers: {
+          "X-Goog-Api-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      console.log(`Jules: Failed to fetch activities for plan: ${response.status}`);
+      return null;
+    }
+
+    const data = (await response.json()) as ActivitiesResponse;
+    if (!data.activities || !Array.isArray(data.activities)) {
+      return null;
+    }
+
+    // Find the most recent planGenerated activity (reverse to get latest first)
+    const planActivity = [...data.activities].reverse().find((a) => a.planGenerated);
+    return planActivity?.planGenerated?.plan || null;
+  } catch (error) {
+    console.error(`Jules: Error fetching plan from activities: ${error}`);
+    return null;
+  }
+}
+
+function formatPlanForNotification(plan: Plan): string {
+  const parts: string[] = [];
+  if (plan.title) {
+    parts.push(`📋 ${plan.title}`);
+  }
+  if (plan.steps && plan.steps.length > 0) {
+    const stepsPreview = plan.steps.slice(0, MAX_PLAN_STEPS_IN_NOTIFICATION);
+    stepsPreview.forEach((step, index) => {
+      // Truncate long steps for notification display
+      const truncatedStep = step.length > MAX_PLAN_STEP_LENGTH
+        ? step.substring(0, MAX_PLAN_STEP_LENGTH - 3) + '...'
+        : step;
+      parts.push(`${index + 1}. ${truncatedStep}`);
+    });
+    if (plan.steps.length > MAX_PLAN_STEPS_IN_NOTIFICATION) {
+      parts.push(`... and ${plan.steps.length - MAX_PLAN_STEPS_IN_NOTIFICATION} more steps`);
+    }
+  }
+  return parts.join('\n');
+}
+
 async function notifyPlanAwaitingApproval(
   session: Session,
   context: vscode.ExtensionContext
 ): Promise<void> {
+  // Fetch plan details from activities
+  const apiKey = await context.secrets.get("jules-api-key");
+  let planDetails = '';
+
+  if (apiKey) {
+    const plan = await fetchPlanFromActivities(session.name, apiKey);
+    if (plan) {
+      planDetails = formatPlanForNotification(plan);
+    }
+  }
+
+  // Build notification message with plan content
+  let message = `Jules has a plan ready for your approval in session: "${session.title}"`;
+  if (planDetails) {
+    message += `\n\n${planDetails}`;
+  }
+
   const selection = await vscode.window.showInformationMessage(
-    `Jules has a plan ready for your approval in session: "${session.title}"`,
+    message,
+    { modal: true },
     "Approve Plan",
     VIEW_DETAILS_ACTION
   );
