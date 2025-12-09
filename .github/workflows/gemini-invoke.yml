@@ -11,11 +11,10 @@ on:
         type: "string"
         description: "Response language (default: 'ja' — JP)."
         default: "ja"
+      # Use minimal inputs for GEMINI API key usage
     secrets:
       GEMINI_API_KEY:
-        required: false
-      GOOGLE_API_KEY:
-        required: false
+        required: true
 
 concurrency:
   group: "${{ github.workflow }}-invoke-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}"
@@ -48,28 +47,17 @@ jobs:
         id: "gemini_invoke"
         env:
           GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}"
-          GOOGLE_API_KEY: "${{ secrets.GOOGLE_API_KEY }}"
           ADDITIONAL_CONTEXT: "${{ inputs.additional_context }}"
         with:
-          gcp_location: "${{ vars.GOOGLE_CLOUD_LOCATION }}"
-          gcp_project_id: "${{ vars.GOOGLE_CLOUD_PROJECT }}"
-          gcp_service_account: "${{ vars.SERVICE_ACCOUNT_EMAIL }}"
-          gcp_workload_identity_provider: "${{ vars.GCP_WIF_PROVIDER }}"
+          # Minimal config — using API key only
           gemini_api_key: "${{ secrets.GEMINI_API_KEY }}"
-          gemini_cli_version: "${{ vars.GEMINI_CLI_VERSION }}"
-          gemini_debug: "${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}"
-          gemini_model: "${{ vars.GEMINI_MODEL }}"
-          google_api_key: "${{ secrets.GOOGLE_API_KEY }}"
-          use_gemini_code_assist: "${{ vars.GOOGLE_GENAI_USE_GCA }}"
-          use_vertex_ai: "${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}"
           settings: |-
             {
               "model": {
                 "maxSessionTurns": 25
               },
               "telemetry": {
-                "enabled": ${{ vars.GOOGLE_CLOUD_PROJECT != '' }},
-                "target": "gcp"
+                "enabled": false
               },
               "mcpServers": {
                 "github": {

@@ -21,15 +21,15 @@ on:
                 required: false
                 default: ""
         outputs:
-            available_labels:
-                description: "List of available labels"
-                value: ${{ jobs.triage_bulk.outputs.available_labels }}
-            triaged_issues:
-                description: "JSON string of triaged issues"
-                value: ${{ jobs.triage_bulk.outputs.triaged_issues }}
+          available_labels:
+            description: "List of available labels"
+            value: ${{ jobs.triage_bulk.outputs.available_labels }}
+          triaged_issues:
+            description: "JSON string of triaged issues"
+            value: ${{ jobs.triage_bulk.outputs.triaged_issues }}
         secrets:
-            GEMINI_API_KEY:
-                required: true
+          GEMINI_API_KEY:
+            required: true
 
 defaults:
     run:
@@ -40,9 +40,9 @@ jobs:
         runs-on: "ubuntu-latest"
         timeout-minutes: 5
         permissions:
-            contents: "read"
-            issues: "read"
-            pull-requests: "read"
+          contents: "read"
+          issues: "read"
+          pull-requests: "read"
         outputs:
             available_labels: "${{ steps.get_labels.outputs.available_labels }}"
             triaged_issues: "${{ steps.collect_outputs.outputs.triaged_issues }}"
@@ -96,12 +96,12 @@ jobs:
                   prompt: |-
                       出力は必ず日本語で行ってください。
                       応答言語: ${{ inputs.language }}
-
+                      
                       ## Role
                       You are a highly efficient Issue Triage Engineer. Your task is to analyze the provided GitHub issues and assign the most relevant labels from the available list.
 
                       ## Input Data
-
+                      
                       **Available Labels:**
                       ${{ steps.get_labels.outputs.available_labels }}
 
@@ -140,7 +140,7 @@ jobs:
                       const fs = require('fs');
                       const path = '/tmp/triaged_issues.json';
                       let triagedIssues = '[]';
-
+                      
                       try {
                         if (fs.existsSync(path)) {
                           const content = fs.readFileSync(path, 'utf8');
@@ -154,5 +154,5 @@ jobs:
                       } catch (error) {
                         core.warning(`Error reading or parsing triaged issues file: ${error.message}`);
                       }
-
+                      
                       core.setOutput('triaged_issues', triagedIssues);
