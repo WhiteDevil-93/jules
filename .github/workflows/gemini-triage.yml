@@ -217,7 +217,7 @@ jobs:
             const path = '/tmp/runner/env';
             let selectedLabels = '';
             let triagedIssues = '';
-
+            
             try {
               if (fs.existsSync(path)) {
                 const content = fs.readFileSync(path, 'utf8');
@@ -233,7 +233,7 @@ jobs:
             } catch (error) {
               core.warning(`Error reading output file: ${error.message}`);
             }
-
+            
             core.setOutput('selected_labels', selectedLabels);
             core.setOutput('triaged_issues', triagedIssues);
 
