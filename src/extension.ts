@@ -541,18 +541,27 @@ async function updatePreviousStates(
   currentSessions: Session[],
   context: vscode.ExtensionContext
 ): Promise<void> {
+  let hasChanged = false;
+
   for (const session of currentSessions) {
     const prevState = previousSessionStates.get(session.name);
 
     // If already terminated, we don't need to check again.
     // Just update with the latest info from the server but keep it terminated.
     if (prevState?.isTerminated) {
-      previousSessionStates.set(session.name, {
-        ...prevState,
-        state: session.state,
-        rawState: session.rawState,
-        outputs: session.outputs,
-      });
+      if (
+        prevState.state !== session.state ||
+        prevState.rawState !== session.rawState ||
+        JSON.stringify(prevState.outputs) !== JSON.stringify(session.outputs)
+      ) {
+        previousSessionStates.set(session.name, {
+          ...prevState,
+          state: session.state,
+          rawState: session.rawState,
+          outputs: session.outputs,
+        });
+        hasChanged = true;
+      }
       continue;
     }
 
@@ -577,23 +586,35 @@ async function updatePreviousStates(
       notifiedSessions.delete(session.name);
     }
 
-    previousSessionStates.set(session.name, {
-      name: session.name,
-      state: session.state,
-      rawState: session.rawState,
-      outputs: session.outputs,
-      isTerminated: isTerminated,
-    });
+    // Check if state actually changed before updating map
+    if (
+      !prevState ||
+      prevState.state !== session.state ||
+      prevState.rawState !== session.rawState ||
+      prevState.isTerminated !== isTerminated ||
+      JSON.stringify(prevState.outputs) !== JSON.stringify(session.outputs)
+    ) {
+      previousSessionStates.set(session.name, {
+        name: session.name,
+        state: session.state,
+        rawState: session.rawState,
+        outputs: session.outputs,
+        isTerminated: isTerminated,
+      });
+      hasChanged = true;
+    }
   }
 
-  // Persist the updated states to global state
-  await context.globalState.update(
-    "jules.previousSessionStates",
-    Object.fromEntries(previousSessionStates)
-  );
-  console.log(
-    `Jules: Saved ${previousSessionStates.size} session states to global state.`
-  );
+  // Persist the updated states to global state ONLY if changed
+  if (hasChanged) {
+    await context.globalState.update(
+      "jules.previousSessionStates",
+      Object.fromEntries(previousSessionStates)
+    );
+    console.log(
+      `Jules: Saved ${previousSessionStates.size} session states to global state.`
+    );
+  }
 }
 
 function startAutoRefresh(
