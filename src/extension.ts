@@ -60,7 +60,7 @@ interface SessionResponse {
   // Add other fields if needed
 }
 
-interface SessionOutput {
+export interface SessionOutput {
   pullRequest?: {
     url: string;
     title: string;
@@ -68,7 +68,7 @@ interface SessionOutput {
   };
 }
 
-interface Session {
+export interface Session {
   name: string;
   title: string;
   state: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
@@ -537,7 +537,7 @@ async function notifyUserFeedbackRequired(session: Session): Promise<void> {
   }
 }
 
-function areOutputsEqual(a?: SessionOutput[], b?: SessionOutput[]): boolean {
+export function areOutputsEqual(a?: SessionOutput[], b?: SessionOutput[]): boolean {
   if (a === b) {
     return true;
   }
@@ -560,7 +560,7 @@ function areOutputsEqual(a?: SessionOutput[], b?: SessionOutput[]): boolean {
   return true;
 }
 
-async function updatePreviousStates(
+export async function updatePreviousStates(
   currentSessions: Session[],
   context: vscode.ExtensionContext
 ): Promise<void> {
