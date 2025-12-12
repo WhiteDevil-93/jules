@@ -8,6 +8,13 @@ suite('GitHubAuth Test Suite', () => {
     let getSessionStub: sinon.SinonStub;
     let showErrorMessageStub: sinon.SinonStub;
 
+    const FAKE_SESSION = {
+        accessToken: 'fake-token',
+        account: { label: 'testuser', id: '1' },
+        id: 's1',
+        scopes: []
+    };
+
     setup(() => {
         sandbox = sinon.createSandbox();
         getSessionStub = sandbox.stub(vscode.authentication, 'getSession');
@@ -20,8 +27,7 @@ suite('GitHubAuth Test Suite', () => {
 
     suite('signIn', () => {
         test('should return access token on successful sign in', async () => {
-            const fakeSession = { accessToken: 'fake-token', account: { label: 'user', id: '1' }, id: 's1', scopes: [] };
-            getSessionStub.resolves(fakeSession);
+            getSessionStub.resolves(FAKE_SESSION);
 
             const token = await GitHubAuth.signIn();
 
@@ -45,12 +51,11 @@ suite('GitHubAuth Test Suite', () => {
 
     suite('getSession', () => {
         test('should return session when available', async () => {
-            const fakeSession = { accessToken: 'fake-token', account: { label: 'user', id: '1' }, id: 's1', scopes: [] };
-            getSessionStub.resolves(fakeSession);
+            getSessionStub.resolves(FAKE_SESSION);
 
             const session = await GitHubAuth.getSession();
 
-            assert.strictEqual(session, fakeSession);
+            assert.strictEqual(session, FAKE_SESSION);
             assert.strictEqual(getSessionStub.calledOnce, true);
             const args = getSessionStub.firstCall.args;
             assert.deepStrictEqual(args[2], { createIfNone: false });
@@ -67,8 +72,7 @@ suite('GitHubAuth Test Suite', () => {
 
     suite('getToken', () => {
         test('should return token when session exists', async () => {
-            const fakeSession = { accessToken: 'fake-token', account: { label: 'user', id: '1' }, id: 's1', scopes: [] };
-            getSessionStub.resolves(fakeSession);
+            getSessionStub.resolves(FAKE_SESSION);
 
             const token = await GitHubAuth.getToken();
 
@@ -86,8 +90,7 @@ suite('GitHubAuth Test Suite', () => {
 
     suite('getUserInfo', () => {
         test('should return user info when session exists', async () => {
-            const fakeSession = { accessToken: 'fake-token', account: { label: 'testuser', id: '1' }, id: 's1', scopes: [] };
-            getSessionStub.resolves(fakeSession);
+            getSessionStub.resolves(FAKE_SESSION);
 
             const info = await GitHubAuth.getUserInfo();
 
@@ -105,7 +108,7 @@ suite('GitHubAuth Test Suite', () => {
 
     suite('isSignedIn', () => {
         test('should return true when session exists', async () => {
-            getSessionStub.resolves({} as any);
+            getSessionStub.resolves(FAKE_SESSION);
             const signedIn = await GitHubAuth.isSignedIn();
             assert.strictEqual(signedIn, true);
         });

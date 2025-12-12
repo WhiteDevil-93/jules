@@ -46,12 +46,10 @@ suite('JulesApiClient Test Suite', () => {
             };
             fetchStub.resolves(mockResponse);
 
-            try {
-                await client.getSource('invalid-source');
-                assert.fail('Should have thrown an error');
-            } catch (error: any) {
-                assert.ok(error.message.includes('API request failed: 404 Not Found'));
-            }
+            await assert.rejects(
+                client.getSource('invalid-source'),
+                new Error('API request failed: 404 Not Found')
+            );
         });
     });
 });
