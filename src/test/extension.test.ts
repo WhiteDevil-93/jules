@@ -3,7 +3,15 @@ import * as assert from "assert";
 // You can import and use all API from the 'vscode' module
 // as well as import your extension to test it
 import * as vscode from "vscode";
-import { SessionTreeItem, mapApiStateToSessionState, buildFinalPrompt } from "../extension";
+import {
+  SessionTreeItem,
+  mapApiStateToSessionState,
+  buildFinalPrompt,
+  areOutputsEqual,
+  updatePreviousStates,
+  Session,
+  SessionOutput
+} from "../extension";
 import * as sinon from "sinon";
 
 suite("Extension Test Suite", () => {
@@ -261,6 +269,92 @@ suite("Extension Test Suite", () => {
 
       // 6分前のキャッシュは無効
       assert.ok((now - invalidTimestamp) >= ttl);
+    });
+  });
+
+  suite("areOutputsEqual", () => {
+    test("should return true when both are undefined", () => {
+      assert.strictEqual(areOutputsEqual(undefined, undefined), true);
+    });
+    test("should return false when one is undefined", () => {
+      assert.strictEqual(areOutputsEqual(undefined, []), false);
+      assert.strictEqual(areOutputsEqual([], undefined), false);
+    });
+    test("should return true when both are empty arrays", () => {
+      assert.strictEqual(areOutputsEqual([], []), true);
+    });
+    test("should return false when length differs", () => {
+      assert.strictEqual(areOutputsEqual([], [{}]), false);
+    });
+    test("should return true for same reference", () => {
+      const arr: SessionOutput[] = [];
+      assert.strictEqual(areOutputsEqual(arr, arr), true);
+    });
+    test("should return false when pullRequest url differs", () => {
+      const a: SessionOutput[] = [{ pullRequest: { url: "u1", title: "t", description: "d" } }];
+      const b: SessionOutput[] = [{ pullRequest: { url: "u2", title: "t", description: "d" } }];
+      assert.strictEqual(areOutputsEqual(a, b), false);
+    });
+    test("should return false when pullRequest title differs", () => {
+      const a: SessionOutput[] = [{ pullRequest: { url: "u", title: "t1", description: "d" } }];
+      const b: SessionOutput[] = [{ pullRequest: { url: "u", title: "t2", description: "d" } }];
+      assert.strictEqual(areOutputsEqual(a, b), false);
+    });
+    test("should return true when all properties match", () => {
+      const a: SessionOutput[] = [{ pullRequest: { url: "u", title: "t", description: "d" } }];
+      const b: SessionOutput[] = [{ pullRequest: { url: "u", title: "t", description: "d" } }];
+      assert.strictEqual(areOutputsEqual(a, b), true);
+    });
+  });
+
+  suite("updatePreviousStates", () => {
+    let sandbox: sinon.SinonSandbox;
+    let mockContext: vscode.ExtensionContext;
+    let updateStub: sinon.SinonStub;
+
+    setup(() => {
+      sandbox = sinon.createSandbox();
+      updateStub = sandbox.stub().resolves();
+      mockContext = {
+        globalState: {
+          get: sandbox.stub().returns({}),
+          update: updateStub,
+          keys: sandbox.stub().returns([]),
+        },
+      } as any;
+    });
+
+    teardown(() => {
+      sandbox.restore();
+    });
+
+    test("should not update globalState if session state unchanged", async () => {
+      const session: Session = {
+        name: "s1",
+        title: "title",
+        state: "RUNNING",
+        rawState: "RUNNING",
+        outputs: []
+      };
+
+      // Update once to set initial state
+      await updatePreviousStates([session], mockContext);
+      assert.strictEqual(updateStub.callCount, 1, "First call should update");
+
+      // Update again with same state
+      updateStub.resetHistory();
+      await updatePreviousStates([session], mockContext);
+      assert.strictEqual(updateStub.callCount, 0, "Second call with same data should not update");
+    });
+
+    test("should update globalState if session state changed", async () => {
+      const session1: Session = { name: "s2", title: "t", state: "RUNNING", rawState: "RUNNING", outputs: [] };
+      await updatePreviousStates([session1], mockContext);
+      updateStub.resetHistory();
+
+      const session2: Session = { ...session1, state: "COMPLETED" };
+      await updatePreviousStates([session2], mockContext);
+      assert.strictEqual(updateStub.callCount, 1, "Should update when state changes");
     });
   });
 });

@@ -61,7 +61,7 @@ interface SessionResponse {
   // Add other fields if needed
 }
 
-interface SessionOutput {
+export interface SessionOutput {
   pullRequest?: {
     url: string;
     title: string;
@@ -69,7 +69,7 @@ interface SessionOutput {
   };
 }
 
-interface Session {
+export interface Session {
   name: string;
   title: string;
   state: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
@@ -539,22 +539,54 @@ async function notifyUserFeedbackRequired(session: Session): Promise<void> {
   }
 }
 
-async function updatePreviousStates(
+export function areOutputsEqual(a?: SessionOutput[], b?: SessionOutput[]): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b || a.length !== b.length) {
+    return false;
+  }
+
+  for (let i = 0; i < a.length; i++) {
+    const prA = a[i]?.pullRequest;
+    const prB = b[i]?.pullRequest;
+
+    if (
+      prA?.url !== prB?.url ||
+      prA?.title !== prB?.title ||
+      prA?.description !== prB?.description
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function updatePreviousStates(
   currentSessions: Session[],
   context: vscode.ExtensionContext
 ): Promise<void> {
+  let hasChanged = false;
+
   for (const session of currentSessions) {
     const prevState = previousSessionStates.get(session.name);
 
     // If already terminated, we don't need to check again.
     // Just update with the latest info from the server but keep it terminated.
     if (prevState?.isTerminated) {
-      previousSessionStates.set(session.name, {
-        ...prevState,
-        state: session.state,
-        rawState: session.rawState,
-        outputs: session.outputs,
-      });
+      if (
+        prevState.state !== session.state ||
+        prevState.rawState !== session.rawState ||
+        !areOutputsEqual(prevState.outputs, session.outputs)
+      ) {
+        previousSessionStates.set(session.name, {
+          ...prevState,
+          state: session.state,
+          rawState: session.rawState,
+          outputs: session.outputs,
+        });
+        hasChanged = true;
+      }
       continue;
     }
 
@@ -579,23 +611,35 @@ async function updatePreviousStates(
       notifiedSessions.delete(session.name);
     }
 
-    previousSessionStates.set(session.name, {
-      name: session.name,
-      state: session.state,
-      rawState: session.rawState,
-      outputs: session.outputs,
-      isTerminated: isTerminated,
-    });
+    // Check if state actually changed before updating map
+    if (
+      !prevState ||
+      prevState.state !== session.state ||
+      prevState.rawState !== session.rawState ||
+      prevState.isTerminated !== isTerminated ||
+      !areOutputsEqual(prevState.outputs, session.outputs)
+    ) {
+      previousSessionStates.set(session.name, {
+        name: session.name,
+        state: session.state,
+        rawState: session.rawState,
+        outputs: session.outputs,
+        isTerminated: isTerminated,
+      });
+      hasChanged = true;
+    }
   }
 
-  // Persist the updated states to global state
-  await context.globalState.update(
-    "jules.previousSessionStates",
-    Object.fromEntries(previousSessionStates)
-  );
-  console.log(
-    `Jules: Saved ${previousSessionStates.size} session states to global state.`
-  );
+  // Persist the updated states to global state ONLY if changed
+  if (hasChanged) {
+    await context.globalState.update(
+      "jules.previousSessionStates",
+      Object.fromEntries(previousSessionStates)
+    );
+    console.log(
+      `Jules: Saved ${previousSessionStates.size} session states to global state.`
+    );
+  }
 }
 
 function startAutoRefresh(
