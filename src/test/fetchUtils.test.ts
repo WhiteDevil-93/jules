@@ -18,13 +18,13 @@ describe('fetchUtils', () => {
     });
 
     it('should call fetch with provided arguments', async () => {
-        fetchStub.resolves(new Response('ok'));
+        fetchStub.resolves({ ok: true } as any);
         await fetchWithTimeout('https://example.com');
         assert.ok(fetchStub.calledWith('https://example.com'));
     });
 
     it('should pass a signal to fetch', async () => {
-        fetchStub.resolves(new Response('ok'));
+        fetchStub.resolves({ ok: true } as any);
         await fetchWithTimeout('https://example.com');
 
         const call = fetchStub.getCall(0);
@@ -34,7 +34,7 @@ describe('fetchUtils', () => {
     });
 
     it('should respect custom timeout option', async () => {
-        fetchStub.resolves(new Response('ok'));
+        fetchStub.resolves({ ok: true } as any);
         await fetchWithTimeout('https://example.com', { timeout: 1000 });
         assert.ok(fetchStub.calledOnce);
     });

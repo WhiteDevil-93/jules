@@ -5,8 +5,20 @@
 export async function fetchWithTimeout(input: string | URL | Request, init?: RequestInit & { timeout?: number }): Promise<Response> {
     const timeout = init?.timeout ?? 30000;
 
-    // AbortSignal.timeout is available in Node 17.3+ and recent browsers
-    const timeoutSignal = AbortSignal.timeout(timeout);
+    let timeoutSignal: AbortSignal;
+    // @ts-ignore
+    if (typeof AbortSignal.timeout === 'function') {
+        // @ts-ignore
+        timeoutSignal = AbortSignal.timeout(timeout);
+    } else {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(new Error('Timeout')), timeout);
+        // Ensure the timer doesn't block the process from exiting if it's supported
+        if (typeof timer === 'object' && timer !== null && 'unref' in timer && typeof (timer as any).unref === 'function') {
+            (timer as any).unref();
+        }
+        timeoutSignal = controller.signal;
+    }
 
     let finalSignal = timeoutSignal;
     if (init?.signal) {
@@ -33,8 +45,6 @@ function anySignal(signals: AbortSignal[]): AbortSignal {
 
     const onAbort = (reason: any) => {
         controller.abort(reason);
-        // Cleanup not strictly necessary for short lived requests but good practice
-        // We can't easily remove listeners here without tracking them
     };
 
     for (const signal of signals) {
