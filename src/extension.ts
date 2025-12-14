@@ -1036,9 +1036,11 @@ export class SessionTreeItem extends vscode.TreeItem {
     if (session.sourceContext?.source) {
       // Extract repo name if possible for cleaner display
       const source = session.sourceContext.source;
-      const repoMatch = source.match(/sources\/github\/(.+)/);
-      const repoName = repoMatch ? repoMatch[1] : source;
-      tooltip.appendMarkdown(`\n\nSource: \`${repoName}\``);
+      if (typeof source === 'string') {
+        const repoMatch = source.match(/sources\/github\/(.+)/);
+        const repoName = repoMatch ? repoMatch[1] : source;
+        tooltip.appendMarkdown(`\n\nSource: \`${repoName}\``);
+      }
     }
 
     tooltip.appendMarkdown(`\n\nID: \`${session.name}\``);
