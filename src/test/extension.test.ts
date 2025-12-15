@@ -13,6 +13,8 @@ import {
   SessionOutput
 } from "../extension";
 import * as sinon from "sinon";
+import * as fetchUtils from "../fetchUtils";
+import { activate } from "../extension";
 
 suite("Extension Test Suite", () => {
   vscode.window.showInformationMessage("Start all tests.");
@@ -217,6 +219,79 @@ suite("Extension Test Suite", () => {
 
       assert.ok(!session.outputs || session.outputs.length === 0);
     });
+
+    test("activate should clean expired PR status cache entries and keep valid ones", async () => {
+      const now = Date.now();
+      const PR_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+      // Build cache: one valid (2 minutes ago), one expired (6 minutes ago)
+      const validLastChecked = now - 2 * 60 * 1000;
+      const expiredLastChecked = now - (PR_CACHE_DURATION + 60 * 1000);
+
+      const prCache: any = {
+        "https://github.com/owner/repo/pull/1": { isClosed: true, lastChecked: validLastChecked },
+        "https://github.com/owner/repo/pull/2": { isClosed: false, lastChecked: expiredLastChecked },
+      };
+
+      const localSandbox = sinon.createSandbox();
+
+      const getStub = localSandbox.stub().callsFake((key: string, def?: any) => {
+        if (key === 'jules.prStatusCache') return prCache;
+        return def;
+      });
+
+      const updateStub = localSandbox.stub().resolves();
+
+      const mockContext = {
+        globalState: {
+          get: getStub,
+          update: updateStub,
+          keys: localSandbox.stub().returns([]),
+        },
+        subscriptions: [],
+        secrets: { get: localSandbox.stub().resolves(undefined), store: localSandbox.stub().resolves() }
+      } as any as vscode.ExtensionContext;
+
+      const consoleLogStub = localSandbox.stub(console, 'log');
+
+      // Stub fetch so we can observe calls for expired entry
+      const fetchStub = localSandbox.stub(fetchUtils, 'fetchWithTimeout').resolves({ ok: true, json: async () => ({ state: 'open' }) } as any);
+
+      // Prevent duplicate command registration errors during test
+      const registerCmdStub = localSandbox.stub(vscode.commands, 'registerCommand').callsFake(() => ({ dispose: () => {} } as any));
+
+      // Call activate to load and clean cache
+      activate(mockContext);
+
+
+      // Now trigger PR status checks by calling updatePreviousStates for two completed sessions
+      const session1: Session = {
+        name: 's-valid',
+        title: 'valid',
+        state: 'COMPLETED',
+        rawState: 'COMPLETED',
+        outputs: [{ pullRequest: { url: 'https://github.com/owner/repo/pull/1', title: 'PR1', description: '' } }]
+      };
+
+      const session2: Session = {
+        name: 's-expired',
+        title: 'expired',
+        state: 'COMPLETED',
+        rawState: 'COMPLETED',
+        outputs: [{ pullRequest: { url: 'https://github.com/owner/repo/pull/2', title: 'PR2', description: '' } }]
+      };
+
+      // Run updatePreviousStates which will invoke PR checks; the valid cached PR should NOT trigger a fetch
+      await updatePreviousStates([session1, session2], mockContext);
+
+      // Expect one fetch call (for the expired PR only)
+      assert.strictEqual(fetchStub.callCount, 1);
+      const fetchArg0 = String(fetchStub.getCall(0).args[0]);
+      assert.ok(fetchArg0.includes('/repos/owner/repo/pulls/2'));
+
+      // Cleanup stubs
+      localSandbox.restore();
+    });
   });
 
   // Integration tests for caching logic
@@ -358,7 +433,8 @@ suite("Extension Test Suite", () => {
 
       // Update once to set initial state
       await updatePreviousStates([session], mockContext);
-      assert.strictEqual(updateStub.callCount, 1, "First call should update");
+      // Calls update for both previousSessionStates and prStatusCache
+      assert.strictEqual(updateStub.callCount, 2, "First call should update (states + cache)");
 
       // Update again with same state
       updateStub.resetHistory();
@@ -373,7 +449,28 @@ suite("Extension Test Suite", () => {
 
       const session2: Session = { ...session1, state: "COMPLETED" };
       await updatePreviousStates([session2], mockContext);
-      assert.strictEqual(updateStub.callCount, 1, "Should update when state changes");
+      assert.strictEqual(updateStub.callCount, 2, "Should update when state changes (states + cache)");
+    });
+
+    test("should persist PR status cache when session state changes", async () => {
+      const session: Session = {
+        name: "s3",
+        title: "title",
+        state: "COMPLETED",
+        rawState: "COMPLETED",
+        outputs: []
+      };
+
+      await updatePreviousStates([session], mockContext);
+
+      let prCacheUpdateCalled = false;
+      for (const call of updateStub.getCalls()) {
+        if (call.args[0] === "jules.prStatusCache") {
+          prCacheUpdateCalled = true;
+          break;
+        }
+      }
+      assert.ok(prCacheUpdateCalled, "Should have attempted to save PR status cache");
     });
   });
 });
