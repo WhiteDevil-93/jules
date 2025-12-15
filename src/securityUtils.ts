@@ -48,17 +48,21 @@ export function stripUrlCredentials(url: string): string {
  * @param maxLength Maximum length of the string (default: 500)
  * @returns Sanitized string
  */
-export function sanitizeForLogging(value: string | undefined | null | unknown, maxLength: number = 500): string {
-    if (value === undefined || value === null) {
+export function sanitizeForLogging(value: unknown, maxLength: number = 500): string {
+    if (value == null) {
         return String(value);
     }
 
     // Convert to string in case it's not
     let str = String(value);
 
-    // Truncate if too long
+    // Truncate if too long, ensuring the result is not longer than maxLength
     if (str.length > maxLength) {
-        str = str.substring(0, maxLength) + '...';
+        if (maxLength < 4) { // Not enough space for '...'
+            str = str.substring(0, maxLength);
+        } else {
+            str = str.substring(0, maxLength - 3) + '...';
+        }
     }
 
     // Replace control characters
@@ -68,6 +72,6 @@ export function sanitizeForLogging(value: string | undefined | null | unknown, m
         .replace(/\r/g, '\\r')
         .replace(/\t/g, '\\t')
         // Remove other non-printable characters (except basic ASCII printable)
-        // \x00-\x08, \x0B-\x0C, \x0E-\x1F
-        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        // \x00-\x08, \x0B-\x0C, \x0E-\x1F, \x7F
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 }

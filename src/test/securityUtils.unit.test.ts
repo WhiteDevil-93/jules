@@ -74,8 +74,8 @@ suite("Security Utils Test Suite", () => {
 
     test("sanitizeForLogging should truncate long strings", () => {
         const input = "a".repeat(20);
-        const result = sanitizeForLogging(input, 10);
-        assert.strictEqual(result, "aaaaaaaaaa...");
+        assert.strictEqual(sanitizeForLogging(input, 10), "aaaaaaa...");
+        assert.strictEqual(sanitizeForLogging(input, 3), "aaa");
     });
 
     test("sanitizeForLogging should handle null/undefined", () => {
@@ -88,8 +88,8 @@ suite("Security Utils Test Suite", () => {
     });
 
     test("sanitizeForLogging should remove non-printable control characters", () => {
-        const input = "Text\x00\x1FEnd";
-        const expected = "TextEnd";
+        const input = "Text\x00\x1FWith\x7FDeleteEnd";
+        const expected = "TextWithDeleteEnd";
         const result = sanitizeForLogging(input);
         assert.strictEqual(result, expected);
     });
