@@ -783,13 +783,13 @@ export class JulesSessionsProvider
   implements vscode.TreeDataProvider<vscode.TreeItem> {
   private static silentOutputChannel: vscode.OutputChannel = {
     name: 'silent-channel',
-    append: () => {},
-    appendLine: () => {},
-    replace: () => {},
-    clear: () => {},
-    show: () => {},
-    hide: () => {},
-    dispose: () => {},
+    append: () => { },
+    appendLine: () => { },
+    replace: () => { },
+    clear: () => { },
+    show: () => { },
+    hide: () => { },
+    dispose: () => { },
   };
 
   private _onDidChangeTreeData: vscode.EventEmitter<
@@ -1457,11 +1457,11 @@ export function activate(context: vscode.ExtensionContext) {
         let currentRemoteBranches = remoteBranches;
         if (!new Set(remoteBranches).has(startingBranch)) {
           logChannel.appendLine(`[Jules] Branch "${startingBranch}" not found in cached remote branches, re-fetching...`);
-          
+
           // リモートブランチを再取得（キャッシュを無視）
           const freshBranchInfo = await getBranchesForSession(selectedSource, apiClient, logChannel, context, { forceRefresh: true, showProgress: true });
           currentRemoteBranches = freshBranchInfo.remoteBranches;
-          
+
           logChannel.appendLine(`[Jules] Re-fetched ${currentRemoteBranches.length} remote branches`);
         }
 

@@ -4,6 +4,7 @@ import * as assert from "assert";
 // as well as import your extension to test it
 import * as vscode from "vscode";
 import {
+  activate,
   SessionTreeItem,
   mapApiStateToSessionState,
   buildFinalPrompt,
@@ -134,6 +135,74 @@ suite("Extension Test Suite", () => {
     });
   });
 
+  suite("activate setContext", () => {
+    let sandbox: sinon.SinonSandbox;
+
+    setup(() => {
+      sandbox = sinon.createSandbox();
+    });
+
+    teardown(() => {
+      sandbox.restore();
+    });
+
+    test("should set context to false when no source is selected", async () => {
+      const executeCommandStub = sandbox.stub(vscode.commands, "executeCommand").resolves();
+
+      // Prevent duplicate command registration errors by stubbing registerCommand
+      sandbox.stub(vscode.commands, "registerCommand").returns({ dispose: () => { } } as any);
+
+      const getStub = sandbox.stub();
+      getStub.withArgs("selected-source").returns(undefined);
+      getStub.withArgs("jules.previousSessionStates").returns({});
+
+      const mockContext = {
+        globalState: {
+          get: getStub,
+          update: sandbox.stub().resolves(),
+          keys: sandbox.stub().returns([]),
+        },
+        subscriptions: [],
+      } as any;
+
+      await activate(mockContext);
+
+      assert.ok(
+        executeCommandStub.calledWith('setContext', 'jules-extension.hasSelectedSource', false),
+        "setContext should be called with false when no source selected"
+      );
+    });
+
+    test("should set context to true when source is selected", async () => {
+      const executeCommandStub = sandbox.stub(vscode.commands, "executeCommand").resolves();
+
+      // Prevent duplicate command registration errors by stubbing registerCommand
+      sandbox.stub(vscode.commands, "registerCommand").returns({ dispose: () => { } } as any);
+
+      const selectedSource = { name: "test-source", type: "github" };
+
+      const getStub = sandbox.stub();
+      getStub.withArgs("selected-source").returns(selectedSource);
+      getStub.withArgs("jules.previousSessionStates").returns({});
+
+      const mockContext = {
+        globalState: {
+          get: getStub,
+          update: sandbox.stub().resolves(),
+          keys: sandbox.stub().returns([]),
+        },
+        subscriptions: [],
+      } as any;
+
+      await activate(mockContext);
+
+      assert.ok(
+        executeCommandStub.calledWith('setContext', 'jules-extension.hasSelectedSource', true),
+        "setContext should be called with true when source is selected"
+      );
+    });
+  });
+
   suite("buildFinalPrompt", () => {
     let getConfigurationStub: sinon.SinonStub;
 
@@ -143,6 +212,17 @@ suite("Extension Test Suite", () => {
 
     teardown(() => {
       getConfigurationStub.restore();
+    });
+
+    test("should append custom prompt to user prompt", () => {
+      const workspaceConfig = {
+        get: sinon.stub().withArgs("customPrompt").returns("My custom prompt"),
+      };
+      getConfigurationStub.withArgs("jules-extension").returns(workspaceConfig as any);
+
+      const userPrompt = "User message";
+      const finalPrompt = buildFinalPrompt(userPrompt);
+      assert.strictEqual(finalPrompt, "User message\n\nMy custom prompt");
     });
 
     test("should append custom prompt to user prompt", () => {
@@ -289,6 +369,67 @@ suite("Extension Test Suite", () => {
 
       // 6分前のキャッシュは無効
       assert.ok((now - invalidTimestamp) >= ttl);
+    });
+  });
+
+  suite("listSources command", () => {
+    let sandbox: sinon.SinonSandbox;
+    let mockContext: vscode.ExtensionContext;
+
+    setup(() => {
+      sandbox = sinon.createSandbox();
+      mockContext = {
+        globalState: {
+          get: sandbox.stub(),
+          update: sandbox.stub().resolves(),
+          keys: sandbox.stub().returns([]),
+        },
+        subscriptions: [],
+        secrets: {
+          get: sandbox.stub().resolves('fake-api-key'),
+        }
+      } as any;
+    });
+
+    teardown(() => {
+      sandbox.restore();
+    });
+
+    test("should call setContext with true after selecting a source", async () => {
+      const executeCommandSpy = sandbox.spy(vscode.commands, "executeCommand");
+
+      const cachedSources = [{ id: "s1", name: "test-source", url: "https://example.com" }];
+      const cacheData = { sources: cachedSources, timestamp: Date.now() };
+      (mockContext.globalState.get as sinon.SinonStub).withArgs("jules.sources").returns(cacheData);
+      (mockContext.globalState.get as sinon.SinonStub).withArgs("jules.previousSessionStates").returns({});
+
+      const showQuickPickStub = sandbox.stub(vscode.window, "showQuickPick").resolves({
+        label: "test-source",
+        source: { name: "test-source", type: "github" },
+      } as any);
+
+      // Capture the listSources callback registered during activate
+      let capturedListSources: any;
+      sandbox.stub(vscode.commands, "registerCommand").callsFake((id: string, cb: any) => {
+        if (id === "jules-extension.listSources") {
+          capturedListSources = cb;
+        }
+        return { dispose: () => { } } as any;
+      });
+
+      await activate(mockContext);
+
+      // Invoke the captured command callback directly
+      if (!capturedListSources) {
+        throw new Error('listSources command not registered');
+      }
+
+      await capturedListSources();
+
+      assert.ok(
+        executeCommandSpy.calledWith('setContext', 'jules-extension.hasSelectedSource', true),
+        "setContext should be called with true after source selection"
+      );
     });
   });
 
