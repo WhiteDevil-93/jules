@@ -1892,61 +1892,6 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  const setGitHubPatDisposable = vscode.commands.registerCommand(
-    "jules-extension.setGitHubPat",
-    async () => {
-      // Deprecation warning — suggest OAuth sign-in instead of PAT
-      const proceed = await vscode.window.showWarningMessage(
-        'GitHub PAT is deprecated and will be removed in a future version.\n\nPlease use OAuth sign-in instead.',
-        'Use OAuth (Recommended)',
-        'Continue with PAT'
-      );
-
-      if (proceed === 'Use OAuth (Recommended)') {
-        await vscode.commands.executeCommand('jules-extension.signInGitHub');
-        return;
-      }
-
-      if (proceed !== 'Continue with PAT') {
-        return; // user cancelled
-      }
-      const pat = await vscode.window.showInputBox({
-        prompt: '[DEPRECATED] Enter GitHub Personal Access Token',
-        password: true,
-        placeHolder: 'Enter your GitHub PAT',
-        ignoreFocusOut: true,
-        validateInput: (value) => {
-          if (!value || value.trim().length === 0) {
-            return 'PAT cannot be empty';
-          }
-
-          // 厳格なフォーマットチェック
-          const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
-          const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
-
-          if (!ghpPattern.test(value) && !githubPatPattern.test(value)) {
-            return 'Invalid PAT format. Please enter a valid GitHub Personal Access Token.';
-          }
-
-          return null;
-        }
-      });
-
-      if (pat) {
-        // 追加の検証（validateInputが通った場合でも再チェック）
-        const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
-        const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
-        if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
-          await context.secrets.store('jules-github-pat', pat);
-          vscode.window.showInformationMessage('GitHub PAT saved (deprecated)');
-          logChannel.appendLine('[Jules] GitHub PAT saved (deprecated)');
-        } else {
-          vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
-        }
-      }
-    }
-  );
-
   const clearCacheDisposable = vscode.commands.registerCommand(
     "jules-extension.clearCache",
     async () => {
@@ -1986,7 +1931,6 @@ export function activate(context: vscode.ExtensionContext) {
     openSettingsDisposable,
     deleteSessionDisposable,
     setGithubTokenDisposable,
-    setGitHubPatDisposable,
     clearCacheDisposable
   );
 }

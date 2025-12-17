@@ -128,7 +128,6 @@ This extension contributes the following settings:
 ### Deprecated Settings ⚠️
 
 - `jules-extension.githubToken`: This setting is deprecated. Use the `Jules: Set GitHub Token` command instead.
-- `jules.githubPat`: This setting is deprecated. Use the `Jules: Sign in to GitHub` command instead.
 
 ## Quick Start
 
