@@ -75,6 +75,7 @@ export interface Session {
   title: string;
   state: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
   rawState: string;
+  url?: string;
   outputs?: SessionOutput[];
   sourceContext?: {
     source: string;
@@ -1061,6 +1062,9 @@ export class SessionTreeItem extends vscode.TreeItem {
     this.description = session.state;
     this.iconPath = this.getIcon(session.state, session.rawState);
     this.contextValue = "jules-session";
+    if (session.url) {
+      this.contextValue += " jules-session-with-url";
+    }
     this.command = {
       command: SHOW_ACTIVITIES_COMMAND,
       title: "Show Activities",
@@ -1972,6 +1976,24 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const openInWebAppDisposable = vscode.commands.registerCommand(
+    "jules-extension.openInWebApp",
+    async (item?: SessionTreeItem) => {
+      if (!item || !(item instanceof SessionTreeItem)) {
+        vscode.window.showErrorMessage("No session selected.");
+        return;
+      }
+      const session = item.session;
+      if (session.url) {
+        vscode.env.openExternal(vscode.Uri.parse(session.url));
+      } else {
+        vscode.window.showWarningMessage(
+          "No URL is available for this session."
+        );
+      }
+    }
+  );
+
   context.subscriptions.push(
     setApiKeyDisposable,
     verifyApiKeyDisposable,
@@ -1987,7 +2009,8 @@ export function activate(context: vscode.ExtensionContext) {
     deleteSessionDisposable,
     setGithubTokenDisposable,
     setGitHubPatDisposable,
-    clearCacheDisposable
+    clearCacheDisposable,
+    openInWebAppDisposable
   );
 }
 

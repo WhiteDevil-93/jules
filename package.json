@@ -183,6 +183,12 @@
         "command": "jules-extension.signInGitHub",
         "title": "Sign in to GitHub",
         "category": "Jules"
+      },
+      {
+        "command": "jules-extension.openInWebApp",
+        "title": "Open in Web App",
+        "category": "Jules",
+        "icon": "$(globe)"
       }
     ],
     "viewsWelcome": [
@@ -238,13 +244,18 @@
       "view/item/context": [
         {
           "command": "jules-extension.sendMessage",
-          "when": "view == julesSessionsView && viewItem == jules-session",
+          "when": "view == julesSessionsView && viewItem =~ /jules-session/",
           "group": "inline"
         },
         {
           "command": "jules-extension.deleteSession",
-          "when": "view == julesSessionsView && viewItem == jules-session",
+          "when": "view == julesSessionsView && viewItem =~ /jules-session/",
           "group": "management"
+        },
+        {
+          "command": "jules-extension.openInWebApp",
+          "when": "view == julesSessionsView && viewItem =~ /jules-session-with-url/",
+          "group": "navigation"
         }
       ]
     }
