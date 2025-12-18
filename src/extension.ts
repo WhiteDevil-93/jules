@@ -5,7 +5,7 @@ import { JulesApiClient } from './julesApiClient';
 import { GitHubBranch, GitHubRepo, Source as SourceType, SourcesResponse } from './types';
 import { getBranchesForSession } from './branchUtils';
 import { showMessageComposer } from './composer';
-import { parseGitHubUrl, getRepoInfoForBranchCreation, createRemoteBranch, getGitHubUrl } from "./githubUtils";
+import { parseGitHubUrl, getRepoInfoForBranchCreation, createRemoteBranch, getGitHubUrl } from './githubUtils';
 import { GitHubAuth } from './githubAuth';
 import { promisify } from 'util';
 import { exec } from 'child_process';
