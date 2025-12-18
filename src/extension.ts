@@ -1985,7 +1985,12 @@ export function activate(context: vscode.ExtensionContext) {
       }
       const session = item.session;
       if (session.url) {
-        vscode.env.openExternal(vscode.Uri.parse(session.url));
+        vscode.env.openExternal(vscode.Uri.parse(session.url)).then(success => {
+          if (!success) {
+            logChannel.appendLine(`[Jules] Failed to open external URL: ${session.url}`);
+            vscode.window.showWarningMessage('Failed to open the URL in the browser.');
+          }
+        });
       } else {
         vscode.window.showWarningMessage(
           "No URL is available for this session."
