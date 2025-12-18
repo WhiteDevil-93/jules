@@ -75,6 +75,11 @@
           "default": true,
           "description": "Automatically hide sessions with closed or merged pull requests from the session list"
         },
+        "jules-extension.openPrInVsCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, open pull requests inside VS Code instead of in an external browser. Requires the 'GitHub Pull Requests and Issues' extension."
+        },
         "jules-extension.githubToken": {
           "type": "string",
           "default": "",

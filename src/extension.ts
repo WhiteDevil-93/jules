@@ -445,7 +445,26 @@ async function notifyPRCreated(session: Session, prUrl: string): Promise<void> {
     "Open PR"
   );
   if (result === "Open PR") {
-    vscode.env.openExternal(vscode.Uri.parse(prUrl));
+    const openInVsCode = vscode.workspace
+      .getConfiguration("jules-extension")
+      .get<boolean>("openPrInVsCode", false);
+
+    if (openInVsCode) {
+      try {
+        await vscode.commands.executeCommand("pr.openDescription", {
+          prUrl: prUrl,
+        });
+      } catch (error) {
+        console.error("Failed to open PR in VS Code:", error);
+        vscode.window.showErrorMessage(
+          "Failed to open PR in VS Code. Please ensure the 'GitHub Pull Requests and Issues' extension is installed and you are logged in."
+        );
+        // Fallback to opening in browser
+        vscode.env.openExternal(vscode.Uri.parse(prUrl));
+      }
+    } else {
+      vscode.env.openExternal(vscode.Uri.parse(prUrl));
+    }
   }
 }
 
