@@ -75,6 +75,7 @@ export interface Session {
   title: string;
   state: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
   rawState: string;
+  url?: string;
   outputs?: SessionOutput[];
   sourceContext?: {
     source: string;
@@ -1061,6 +1062,9 @@ export class SessionTreeItem extends vscode.TreeItem {
     this.description = session.state;
     this.iconPath = this.getIcon(session.state, session.rawState);
     this.contextValue = "jules-session";
+    if (session.url) {
+      this.contextValue += " jules-session-with-url";
+    }
     this.command = {
       command: SHOW_ACTIVITIES_COMMAND,
       title: "Show Activities",
@@ -1229,6 +1233,27 @@ function updateStatusBar(
     statusBarItem.text = `$(repo) Jules: No source selected`;
     statusBarItem.tooltip = "Click to select a source";
     statusBarItem.show();
+  }
+}
+
+
+
+export async function handleOpenInWebApp(item: SessionTreeItem | undefined, logChannel: vscode.OutputChannel) {
+  if (!item || !(item instanceof SessionTreeItem)) {
+    vscode.window.showErrorMessage("No session selected.");
+    return;
+  }
+  const session = item.session;
+  if (session.url) {
+    const success = await vscode.env.openExternal(vscode.Uri.parse(session.url));
+    if (!success) {
+      logChannel.appendLine(`[Jules] Failed to open external URL: ${session.url}`);
+      vscode.window.showWarningMessage('Failed to open the URL in the browser.');
+    }
+  } else {
+    vscode.window.showWarningMessage(
+      "No URL is available for this session."
+    );
   }
 }
 
@@ -1972,6 +1997,10 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const openInWebAppDisposable = vscode.commands.registerCommand(
+    "jules-extension.openInWebApp",
+    (item?: SessionTreeItem) => handleOpenInWebApp(item, logChannel)
+  );
   context.subscriptions.push(
     setApiKeyDisposable,
     verifyApiKeyDisposable,
@@ -1987,7 +2016,8 @@ export function activate(context: vscode.ExtensionContext) {
     deleteSessionDisposable,
     setGithubTokenDisposable,
     setGitHubPatDisposable,
-    clearCacheDisposable
+    clearCacheDisposable,
+    openInWebAppDisposable
   );
 }
 
