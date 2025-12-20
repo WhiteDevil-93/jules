@@ -1092,6 +1092,7 @@ export class SessionTreeItem extends vscode.TreeItem {
     'PAUSED': new vscode.ThemeIcon('debug-pause'),
     'FAILED': new vscode.ThemeIcon('error'),
     'COMPLETED': new vscode.ThemeIcon('check'),
+    'CANCELLED': new vscode.ThemeIcon('close'),
   };
 
   // State descriptions for tooltips (English)
@@ -1105,6 +1106,7 @@ export class SessionTreeItem extends vscode.TreeItem {
     'PAUSED': 'Paused',
     'FAILED': 'Failed',
     'COMPLETED': 'Completed',
+    'CANCELLED': 'Cancelled',
   };
 
   constructor(public readonly session: Session) {
