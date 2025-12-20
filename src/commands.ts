@@ -21,7 +21,8 @@ import {
     approvePlan,
     notifyPRCreated,
     previousSessionStates,
-    updatePreviousStates
+    updatePreviousStates,
+    clearPrStatusCache
 } from './sessionManager';
 import {
     JulesSessionsProvider,
@@ -705,11 +706,7 @@ export function registerCommands(
                     "GitHub token saved securely."
                 );
                 // Clear PR status cache when token changes
-                // Accessing cache directly via exported variable from sessionManager might be tricky if it's not exported.
-                // It is exported as `prStatusCache` but let's check.
-                // We might need a setter or clear function in sessionManager.
-                // Assuming it's exported for now, but better to add a clear function later.
-                // For now, let's just refresh.
+            clearPrStatusCache();
                 sessionsProvider.refresh();
             } catch (error) {
                 console.error("Jules: Error setting GitHub Token:", error);
@@ -766,9 +763,11 @@ export function registerCommands(
                 const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
                 const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
                 if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
-                    await context.secrets.store('jules-github-pat', pat);
+                    await context.secrets.store('jules-github-token', pat);
                     vscode.window.showInformationMessage('GitHub PAT saved (deprecated)');
                     logChannel.appendLine('[Jules] GitHub PAT saved (deprecated)');
+                    clearPrStatusCache();
+                    sessionsProvider.refresh();
                 } else {
                     vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
                 }

@@ -23,6 +23,10 @@ import { logChannel } from './logger';
 
 export let prStatusCache: PRStatusCache = {};
 
+export function clearPrStatusCache() {
+    prStatusCache = {};
+}
+
 export let previousSessionStates: Map<string, SessionState> = new Map();
 export let notifiedSessions: Set<string> = new Set();
 
@@ -101,12 +105,20 @@ export async function getGitHubUrl(): Promise<string | undefined> {
     }
 }
 
+interface SessionItemLike {
+    session: {
+        name: string;
+    };
+}
+
 export function resolveSessionId(
     context: vscode.ExtensionContext,
-    target?: any | string // Use 'any' to avoid importing SessionTreeItem for now
+    target?: SessionItemLike | string
 ): string | undefined {
     // If target has a session property with a name, use it (duck typing for SessionTreeItem)
-    const targetName = (target && typeof target === 'object' && 'session' in target) ? target.session.name : undefined;
+    const targetName = (target && typeof target === 'object' && 'session' in target)
+        ? (target as SessionItemLike).session.name
+        : undefined;
 
     return (
         (typeof target === "string" ? target : undefined) ??
