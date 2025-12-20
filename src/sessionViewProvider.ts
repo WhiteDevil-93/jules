@@ -311,7 +311,7 @@ export class JulesSessionsProvider
         // Now, use the cache to build the tree
         let filteredSessions = this.sessionsCache.filter(
             (session) =>
-                (session as any).sourceContext?.source === selectedSource.name
+                session.sourceContext?.source === selectedSource.name
         );
 
         console.log(

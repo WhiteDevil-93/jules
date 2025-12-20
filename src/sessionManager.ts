@@ -58,14 +58,19 @@ export function mapApiStateToSessionState(
 }
 
 export function loadPreviousSessionStates(context: vscode.ExtensionContext): void {
-    const storedStates = context.globalState.get<{ [key: string]: SessionState }>(
-        "jules.previousSessionStates",
-        {}
-    );
-    previousSessionStates = new Map(Object.entries(storedStates));
-    console.log(
-        `Jules: Loaded ${previousSessionStates.size} previous session states from global state.`
-    );
+    try {
+        const storedStates = context.globalState.get<{ [key: string]: SessionState }>(
+            "jules.previousSessionStates",
+            {}
+        );
+        previousSessionStates = new Map(Object.entries(storedStates));
+        logChannel.appendLine(
+            `Loaded ${previousSessionStates.size} previous session states from global state.`
+        );
+    } catch (error) {
+        logChannel.appendLine(`Failed to load previous session states: ${error}`);
+        previousSessionStates = new Map();
+    }
 }
 
 export async function getStoredApiKey(
@@ -88,10 +93,10 @@ export async function getGitHubUrl(): Promise<string | undefined> {
             throw new Error('Git extension not found');
         }
         const git = gitExtension.exports.getAPI(1);
-        const repository = git.repositories[0];
-        if (!repository) {
-            throw new Error('No Git repository found');
+        if (!git.repositories || git.repositories.length === 0) {
+            throw new Error('No Git repositories found');
         }
+        const repository = git.repositories[0];
         const remote = repository.state.remotes.find(
             (r: { name: string; fetchUrl?: string; pushUrl?: string }) => r.name === 'origin'
         );
@@ -176,6 +181,11 @@ export async function checkPRStatus(
         const response = await fetchWithTimeout(apiUrl, { headers });
 
         if (!response.ok) {
+            if (response.status === 403 || response.status === 429) {
+                logChannel.appendLine(`Jules: GitHub API rate limit exceeded. Status: ${response.status}`);
+                // Return cached value if available, otherwise false
+                return cached?.isClosed ?? false;
+            }
             console.log(
                 `Jules: Failed to fetch PR status: ${response.status} ${response.statusText}`
             );
@@ -309,9 +319,8 @@ export async function approvePlan(
   sessionId: string,
   context: vscode.ExtensionContext
 ): Promise<void> {
-  const apiKey = await context.secrets.get("jules-api-key");
+  const apiKey = await getStoredApiKey(context);
   if (!apiKey) {
-    vscode.window.showErrorMessage("API Key is not set. Please set it first.");
     return;
   }
 
@@ -449,10 +458,10 @@ export async function updatePreviousStates(
     if (sessionsToCheck.length > 0) {
         await Promise.all(sessionsToCheck.map(async (session) => {
             const prUrl = extractPRUrl(session);
-            // The `if (prUrl)` check is redundant because `sessionsToCheck` is already filtered.
-            // `prUrl` is guaranteed to be non-null here.
-            const isClosed = await checkPRStatus(prUrl!, context);
-            prStatusMap.set(session.name, isClosed);
+            if (prUrl) {
+                const isClosed = await checkPRStatus(prUrl, context);
+                prStatusMap.set(session.name, isClosed);
+            }
         }));
     }
 
@@ -528,7 +537,7 @@ export async function updatePreviousStates(
         // Also persist PR status cache to save API calls on next reload
         await context.globalState.update("jules.prStatusCache", prStatusCache);
 
-        console.log(
+        logChannel.appendLine(
             `Jules: Saved ${previousSessionStates.size} session states to global state.`
         );
     }

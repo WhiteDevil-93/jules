@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { Source as SourceType, Session } from './types';
+import { Source as SourceType } from './types';
 import { SessionTreeItem } from './sessionViewProvider';
 
 export interface SourceQuickPickItem extends vscode.QuickPickItem {

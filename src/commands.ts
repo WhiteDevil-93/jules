@@ -45,6 +45,48 @@ import { stripUrlCredentials, sanitizeForLogging } from './securityUtils';
 import { updateStatusBar, handleOpenInWebApp, SourceQuickPickItem } from './uiUtils';
 import { resetAutoRefresh } from './autoRefresh';
 
+function getActivityIcon(activity: any): string {
+    if (activity.planGenerated) {
+        return "📝";
+    }
+    if (activity.planApproved) {
+        return "👍";
+    }
+    if (activity.progressUpdated) {
+        return "🔄";
+    }
+    if (activity.sessionCompleted) {
+        return "✅";
+    }
+    return "ℹ️";
+}
+
+function validateGitHubToken(token: string): { isValid: boolean; message?: string } {
+    if (!token || token.trim().length === 0) {
+        return { isValid: false, message: 'Token cannot be empty' };
+    }
+
+    const standardPrefixes = ['ghp_', 'gho_', 'ghu_', 'ghs_', 'ghr_'];
+    const isStandard = standardPrefixes.some(prefix => token.startsWith(prefix));
+    const isFineGrained = token.startsWith('github_pat_');
+
+    if (isStandard) {
+        if (token.length < 36 || token.length > 255) {
+            return { isValid: false, message: 'Invalid token length' };
+        }
+        return { isValid: true };
+    }
+
+    if (isFineGrained) {
+        if (token.length < 50 || token.length > 255) {
+            return { isValid: false, message: 'Invalid token length' };
+        }
+        return { isValid: true };
+    }
+
+    return { isValid: false, message: 'Invalid token format' };
+}
+
 export function registerCommands(
     context: vscode.ExtensionContext,
     sessionsProvider: JulesSessionsProvider,
@@ -405,22 +447,6 @@ export function registerCommands(
         }
     );
 
-    function getActivityIcon(activity: any): string {
-        if (activity.planGenerated) {
-            return "📝";
-        }
-        if (activity.planApproved) {
-            return "👍";
-        }
-        if (activity.progressUpdated) {
-            return "🔄";
-        }
-        if (activity.sessionCompleted) {
-            return "✅";
-        }
-        return "ℹ️";
-    }
-
     const showActivitiesDisposable = vscode.commands.registerCommand(
         "jules-extension.showActivities",
         async (sessionId: string) => {
@@ -446,7 +472,9 @@ export function registerCommands(
                     );
                     return;
                 }
-                const session = (await sessionResponse.json()) as Session;
+                // Session data is fetched but we only need to verify the session exists.
+                await sessionResponse.json();
+
                 const response = await fetchWithTimeout(
                     `${JULES_API_BASE_URL}/${sessionId}/activities`,
                     {
@@ -476,7 +504,6 @@ export function registerCommands(
                 if (data.activities.length === 0) {
                     activitiesChannel.appendLine("No activities found for this session.");
                 } else {
-                    let planDetected = false;
                     data.activities.forEach((activity) => {
                         const icon = getActivityIcon(activity);
                         const timestamp = new Date(activity.createTime).toLocaleString();
@@ -484,7 +511,6 @@ export function registerCommands(
                         if (activity.planGenerated) {
                             message = `Plan generated: ${activity.planGenerated.plan?.title || "Plan"
                                 }`;
-                            planDetected = true;
                         } else if (activity.planApproved) {
                             message = `Plan approved: ${activity.planApproved.planId}`;
                         } else if (activity.progressUpdated) {
@@ -689,9 +715,10 @@ export function registerCommands(
                 }
 
                 // Validate token format
-                if (!token.startsWith("ghp_") && !token.startsWith("github_pat_")) {
+            const validation = validateGitHubToken(token);
+            if (!validation.isValid) {
                     const proceed = await vscode.window.showWarningMessage(
-                        "The token you entered doesn't look like a typical GitHub token. Save anyway?",
+                    `The token you entered might be invalid (${validation.message}). Save anyway?`,
                         { modal: true },
                         "Save",
                         "Cancel"
@@ -742,34 +769,22 @@ export function registerCommands(
                 placeHolder: 'Enter your GitHub PAT',
                 ignoreFocusOut: true,
                 validateInput: (value) => {
-                    if (!value || value.trim().length === 0) {
-                        return 'PAT cannot be empty';
-                    }
-
-                    // 厳格なフォーマットチェック
-                    const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
-                    const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
-
-                    if (!ghpPattern.test(value) && !githubPatPattern.test(value)) {
-                        return 'Invalid PAT format. Please enter a valid GitHub Personal Access Token.';
-                    }
-
-                    return null;
+                const validation = validateGitHubToken(value);
+                return validation.isValid ? null : validation.message;
                 }
             });
 
             if (pat) {
-                // 追加の検証（validateInputが通った場合でも再チェック）
-                const ghpPattern = /^ghp_[A-Za-z0-9]{36}$/;
-                const githubPatPattern = /^github_pat_[A-Za-z0-9_]{82}$/;
-                if (ghpPattern.test(pat) || githubPatPattern.test(pat)) {
+            // Additional validation not strictly needed due to validateInput, but good practice
+            const validation = validateGitHubToken(pat);
+            if (validation.isValid) {
                     await context.secrets.store('jules-github-token', pat);
                     vscode.window.showInformationMessage('GitHub PAT saved (deprecated)');
                     logChannel.appendLine('[Jules] GitHub PAT saved (deprecated)');
                     clearPrStatusCache();
                     sessionsProvider.refresh();
                 } else {
-                    vscode.window.showErrorMessage('Invalid PAT format. PAT was not saved.');
+                vscode.window.showErrorMessage(`Invalid PAT format: ${validation.message}. PAT was not saved.`);
                 }
             }
         }

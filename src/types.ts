@@ -70,7 +70,7 @@ export interface Session {
 
 export interface SessionState {
   name: string;
-  state: string;
+  state: "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED";
   rawState: string;
   outputs?: SessionOutput[];
   isTerminated?: boolean;

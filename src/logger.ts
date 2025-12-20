@@ -7,7 +7,7 @@ export let logChannel: vscode.OutputChannel = {
     appendLine: (val: string) => console.log(val),
     replace: (val: string) => console.log(val),
     clear: () => { },
-    show: () => { },
+    show: (column?: vscode.ViewColumn | boolean, preserveFocus?: boolean) => { },
     hide: () => { },
     dispose: () => { }
 };
