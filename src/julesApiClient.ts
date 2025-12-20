@@ -10,7 +10,7 @@ export class JulesApiClient {
         this.apiKey = apiKey;
     }
 
-    private async request<T>(endpoint: string, options?: RequestInit & { timeout?: number }): Promise<T> {
+    async request<T>(endpoint: string, options?: RequestInit & { timeout?: number }): Promise<T> {
         const url = `${this.baseUrl}${endpoint}`;
         const response = await fetchWithTimeout(url, {
             ...options,

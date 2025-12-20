@@ -16,7 +16,7 @@ import {
 } from './types';
 import { getBranchesForSession } from './branchUtils';
 import { showMessageComposer } from './composer';
-import { showChatPanel } from './chatPanel';
+import { registerChatParticipant } from './chatParticipant';
 import { parseGitHubUrl } from "./githubUtils";
 import { GitHubAuth } from './githubAuth';
 import { promisify } from 'util';
@@ -1257,6 +1257,10 @@ export async function handleOpenInWebApp(item: SessionTreeItem | undefined, logC
 export function activate(context: vscode.ExtensionContext) {
   console.log("Jules Extension is now active");
 
+  // Chat Participant を登録
+  registerChatParticipant(context);
+  console.log("Jules: Chat Participant registered");
+
   // Load PR status cache to avoid redundant GitHub API calls on startup
   prStatusCache = context.globalState.get<PRStatusCache>("jules.prStatusCache", {});
   // Clean up expired entries
@@ -1731,8 +1735,15 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
         
-        await showChatPanel(context, session, data.activities);
+        // Chat Viewを開いてセッション詳細を表示
+        await vscode.commands.executeCommand('workbench.action.chat.open');
+        // セッションIDをグローバルステートに保存（将来的にChat内で使用可能）
         await context.globalState.update("active-session-id", sessionId);
+        
+        // ユーザーにヒントを表示
+        vscode.window.showInformationMessage(
+          `セッション "${session.title}" の詳細はChat Viewで @jules /session ${sessionId} と入力して確認できます。`
+        );
       } catch (error) {
         vscode.window.showErrorMessage(
           "Failed to fetch activities. Please check your internet connection."

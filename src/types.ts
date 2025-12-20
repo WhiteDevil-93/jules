@@ -13,9 +13,11 @@ export interface GitHubRepo {
 export interface Source {
     name: string;
     id: string;
+    displayName?: string;
     url?: string;
     description?: string;
     githubRepo?: GitHubRepo;
+    sessions?: Session[];
 }
 
 export interface SourcesResponse {
