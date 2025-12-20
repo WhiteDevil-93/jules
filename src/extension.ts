@@ -817,13 +817,13 @@ export class JulesSessionsProvider
   implements vscode.TreeDataProvider<vscode.TreeItem> {
   private static silentOutputChannel: vscode.OutputChannel = {
     name: 'silent-channel',
-    append: () => {},
-    appendLine: () => {},
-    replace: () => {},
-    clear: () => {},
-    show: () => {},
-    hide: () => {},
-    dispose: () => {},
+    append: () => { },
+    appendLine: () => { },
+    replace: () => { },
+    clear: () => { },
+    show: () => { },
+    hide: () => { },
+    dispose: () => { },
   };
 
   private _onDidChangeTreeData: vscode.EventEmitter<
@@ -1081,7 +1081,7 @@ export class JulesSessionsProvider
 }
 
 export class SessionTreeItem extends vscode.TreeItem {
-  // API state to icon mapping for 9 states
+  // API state to icon mapping for 10 states
   private static readonly stateIconMap: Record<string, vscode.ThemeIcon> = {
     'STATE_UNSPECIFIED': new vscode.ThemeIcon('question'),
     'QUEUED': new vscode.ThemeIcon('watch'),
