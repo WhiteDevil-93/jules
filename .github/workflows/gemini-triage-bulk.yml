@@ -36,6 +36,9 @@ defaults:
         shell: "bash"
 
 jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
     triage_bulk:
         runs-on: "ubuntu-latest"
         timeout-minutes: 5

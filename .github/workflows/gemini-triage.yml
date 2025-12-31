@@ -239,6 +239,7 @@ jobs:
 
   label:
     runs-on: "ubuntu-slim"
+    timeout-minutes: 30
     needs:
       - "triage"
     permissions:
