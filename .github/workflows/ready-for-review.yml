@@ -5,6 +5,9 @@ on:
     types: [opened, synchronize]
 
 jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
   make-ready:
     runs-on: ubuntu-latest
     permissions:

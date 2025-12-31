@@ -6,6 +6,9 @@ on:
       - "v*-publish"
 
 jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
   publish:
     runs-on: ubuntu-latest
     steps:
@@ -31,6 +34,10 @@ jobs:
 
       - name: Publish to Marketplace
         env:
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           npm install -g @vscode/vsce

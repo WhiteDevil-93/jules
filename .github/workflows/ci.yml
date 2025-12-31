@@ -7,6 +7,9 @@ on:
     branches: [main, develop]
 
 jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
   lint:
     runs-on: ubuntu-latest
     steps:

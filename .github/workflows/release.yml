@@ -9,6 +9,9 @@ permissions:
   contents: write
 
 jobs:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
   release:
     runs-on: ubuntu-latest
     steps:
