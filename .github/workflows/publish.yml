@@ -1,37 +1,42 @@
 name: Publish to Marketplace
-
-on:
+true:
   push:
     tags:
-      - "v*-publish"
-
+    - v*-publish
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+    - name: Checkout
+      uses: actions/checkout@v6
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: 20.x
+    - name: Install dependencies
+      run: npm ci
+    - name: Compile
+      run: npm run compile
+    - name: Run tests (Linux only)
+      if: runner.os == 'Linux'
+      run: 'sudo apt-get update && sudo apt-get install -y xvfb
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "20.x"
+        xvfb-run -a npm test
 
-      - name: Install dependencies
-        run: npm ci
+        '
+    - name: Publish to Marketplace
+      env:
+        VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      run: 'npm install -g @vscode/vsce
 
-      - name: Compile
-        run: npm run compile
+        vsce publish -p $VSCE_PAT
 
-      - name: Run tests (Linux only)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb
-          xvfb-run -a npm test
-
-      - name: Publish to Marketplace
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          npm install -g @vscode/vsce
-          vsce publish -p $VSCE_PAT
+        '
+    timeout-minutes: 30
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read

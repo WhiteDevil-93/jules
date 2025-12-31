@@ -1,11 +1,12 @@
 name: Jules Trigger
-
-on:
+true:
   issues:
-    types: [opened, edited]
+    types:
+    - opened
+    - edited
   issue_comment:
-    types: [created]
-
+    types:
+    - created
 jobs:
   jules-trigger:
     runs-on: ubuntu-slim
@@ -13,96 +14,61 @@ jobs:
       issues: write
     if: github.event.issue.user.login == github.repository_owner
     steps:
-      - name: Check for @Jules mention and trigger Jules
-        uses: actions/github-script@v8
-        env:
-          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const JULES_SUCCESS_COMMENT = '🤖 **Jules AI Agent が起動しました**';
-            const issueNumber = context.payload.issue.number;
-
-            // Fetch the full issue to avoid a truncated body from the event payload
-            const { data: issue } = await github.rest.issues.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-            });
-
-            const issueBody = issue.body || '';
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-            });
-
-            const hasJulesComment = comments.some(comment => comment.body.includes(JULES_SUCCESS_COMMENT));
-            if (hasJulesComment) {
-              console.log('Jules has already been triggered for this issue.');
-              return;
-            }
-
-            const allCommentsText = comments.map(comment => comment.body).join('\\n');
-            const combinedText = issueBody + '\\n' + allCommentsText;
-
-            if (combinedText.toLowerCase().includes('@jules')) {
-              // Clean the issue body
-              const cleanedIssueBody = issueBody.replace(/@jules\s*/i, '').trim();
-
-              let prompt = `Issue Title: ${issue.title}\\n\\nIssue Body:\\n${cleanedIssueBody}\\n\\n`;
-              if (comments.length > 0) {
-                prompt += 'Comments:\\n';
-                for (const comment of comments) {
-                  prompt += `- ${comment.body}\\n`;
-                }
-              }
-
-              // Add default instructions
-              const issueUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${issueNumber}`;
-              prompt += `\n\nInstructions:\n- Include the issue URL: ${issueUrl}\n- In the PR description, include that it was created from this issue.\n- Use 'Closes #${issueNumber}' in the PR description to automatically close the issue when the PR is merged.\n- Write the PR description in Japanese and make it detailed.\n- Add '/gemini review' at the end of the PR description.`;
-
-              try {
-                const response = await fetch('https://jules.googleapis.com/v1alpha/sessions', {
-                  method: 'POST',
-                  headers: {
-                    'X-Goog-Api-Key': process.env.JULES_API_KEY, 
-                    'Content-Type': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    prompt: prompt,
-                    sourceContext: {
-                      source: `sources/github/${context.repo.owner}/${context.repo.repo}`,
-                      githubRepoContext: {
-                        startingBranch: context.payload.repository.default_branch
-                      }
-                    },
-                    automationMode: 'AUTO_CREATE_PR',
-                    title: `Issue #${issue.number}: ${issue.title}`
-                  })
-                });
-
-                if (!response.ok) {
-                  const errorText = await response.text();
-                  throw new Error(`Jules API error: ${response.status} - ${errorText}`);
-                }
-
-                const session = await response.json();
-
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: `${JULES_SUCCESS_COMMENT}\n\nセッションURL: ${session.url}\n\nJulesがこのIssueに基づいてコードを作成し，PRを自動作成します．`
-                });
-              } catch (error) {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  body: `❌ **Jules起動エラー**\n\n\`\`\`json\n${error.message}\n\`\`\``
-                });
-                throw error;
-              }
-            }
+    - name: Check for @Jules mention and trigger Jules
+      uses: actions/github-script@v8
+      env:
+        JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: "const JULES_SUCCESS_COMMENT = '\U0001F916 **Jules AI Agent \u304C\
+          \u8D77\u52D5\u3057\u307E\u3057\u305F**';\nconst issueNumber = context.payload.issue.number;\n\
+          \n// Fetch the full issue to avoid a truncated body from the event payload\n\
+          const { data: issue } = await github.rest.issues.get({\n  owner: context.repo.owner,\n\
+          \  repo: context.repo.repo,\n  issue_number: issueNumber,\n});\n\nconst\
+          \ issueBody = issue.body || '';\n\nconst { data: comments } = await github.rest.issues.listComments({\n\
+          \  owner: context.repo.owner,\n  repo: context.repo.repo,\n  issue_number:\
+          \ issueNumber,\n});\n\nconst hasJulesComment = comments.some(comment =>\
+          \ comment.body.includes(JULES_SUCCESS_COMMENT));\nif (hasJulesComment) {\n\
+          \  console.log('Jules has already been triggered for this issue.');\n  return;\n\
+          }\n\nconst allCommentsText = comments.map(comment => comment.body).join('\\\
+          \\n');\nconst combinedText = issueBody + '\\\\n' + allCommentsText;\n\n\
+          if (combinedText.toLowerCase().includes('@jules')) {\n  // Clean the issue\
+          \ body\n  const cleanedIssueBody = issueBody.replace(/@jules\\s*/i, '').trim();\n\
+          \n  let prompt = `Issue Title: ${issue.title}\\\\n\\\\nIssue Body:\\\\n${cleanedIssueBody}\\\
+          \\n\\\\n`;\n  if (comments.length > 0) {\n    prompt += 'Comments:\\\\n';\n\
+          \    for (const comment of comments) {\n      prompt += `- ${comment.body}\\\
+          \\n`;\n    }\n  }\n\n  // Add default instructions\n  const issueUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/issues/${issueNumber}`;\n\
+          \  prompt += `\\n\\nInstructions:\\n- Include the issue URL: ${issueUrl}\\\
+          n- In the PR description, include that it was created from this issue.\\\
+          n- Use 'Closes #${issueNumber}' in the PR description to automatically close\
+          \ the issue when the PR is merged.\\n- Write the PR description in Japanese\
+          \ and make it detailed.\\n- Add '/gemini review' at the end of the PR description.`;\n\
+          \n  try {\n    const response = await fetch('https://jules.googleapis.com/v1alpha/sessions',\
+          \ {\n      method: 'POST',\n      headers: {\n        'X-Goog-Api-Key':\
+          \ process.env.JULES_API_KEY, \n        'Content-Type': 'application/json'\n\
+          \      },\n      body: JSON.stringify({\n        prompt: prompt,\n     \
+          \   sourceContext: {\n          source: `sources/github/${context.repo.owner}/${context.repo.repo}`,\n\
+          \          githubRepoContext: {\n            startingBranch: context.payload.repository.default_branch\n\
+          \          }\n        },\n        automationMode: 'AUTO_CREATE_PR',\n  \
+          \      title: `Issue #${issue.number}: ${issue.title}`\n      })\n    });\n\
+          \n    if (!response.ok) {\n      const errorText = await response.text();\n\
+          \      throw new Error(`Jules API error: ${response.status} - ${errorText}`);\n\
+          \    }\n\n    const session = await response.json();\n\n    await github.rest.issues.createComment({\n\
+          \      owner: context.repo.owner,\n      repo: context.repo.repo,\n    \
+          \  issue_number: issueNumber,\n      body: `${JULES_SUCCESS_COMMENT}\\n\\\
+          n\u30BB\u30C3\u30B7\u30E7\u30F3URL: ${session.url}\\n\\nJules\u304C\u3053\
+          \u306EIssue\u306B\u57FA\u3065\u3044\u3066\u30B3\u30FC\u30C9\u3092\u4F5C\u6210\
+          \u3057\uFF0CPR\u3092\u81EA\u52D5\u4F5C\u6210\u3057\u307E\u3059\uFF0E`\n\
+          \    });\n  } catch (error) {\n    await github.rest.issues.createComment({\n\
+          \      owner: context.repo.owner,\n      repo: context.repo.repo,\n    \
+          \  issue_number: issueNumber,\n      body: `\u274C **Jules\u8D77\u52D5\u30A8\
+          \u30E9\u30FC**\\n\\n\\`\\`\\`json\\n${error.message}\\n\\`\\`\\``\n    });\n\
+          \    throw error;\n  }\n}\n"
+    timeout-minutes: 30
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read

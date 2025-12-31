@@ -1,9 +1,9 @@
 name: Make Draft PR Ready
-
-on:
+true:
   pull_request:
-    types: [opened, synchronize]
-
+    types:
+    - opened
+    - synchronize
 jobs:
   make-ready:
     runs-on: ubuntu-latest
@@ -12,26 +12,28 @@ jobs:
       issues: write
       contents: write
     steps:
-      - name: Check PR author
-        id: check_author
-        run: |
-          AUTHOR="${{ github.event.pull_request.user.login }}"
-          if [[ $(echo "$AUTHOR" | tr '[:upper:]' '[:lower:]') == *"jules"* ]]; then
-            echo "is_jules=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_jules=false" >> $GITHUB_OUTPUT
-          fi
-      - uses: actions/checkout@v6
-      - name: Make PR ready
-        if: steps.check_author.outputs.is_jules == 'true' && github.event.pull_request.draft == true
-        run: |
-          # Use explicit check to prevent race conditions or failure if already ready
-          PR_NUM=${{ github.event.pull_request.number }}
-          IS_DRAFT=$(gh pr view $PR_NUM --json isDraft --jq '.isDraft')
-          if [ "$IS_DRAFT" = "true" ]; then
-            gh pr ready $PR_NUM || echo "Warning: Failed to mark PR as ready. Continuing..."
-          else
-            echo "PR #$PR_NUM is already ready."
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Check PR author
+      id: check_author
+      run: "AUTHOR=\"${{ github.event.pull_request.user.login }}\"\nif [[ $(echo \"\
+        $AUTHOR\" | tr '[:upper:]' '[:lower:]') == *\"jules\"* ]]; then\n  echo \"\
+        is_jules=true\" >> $GITHUB_OUTPUT\nelse\n  echo \"is_jules=false\" >> $GITHUB_OUTPUT\n\
+        fi\n"
+    - uses: actions/checkout@v6
+    - name: Make PR ready
+      if: steps.check_author.outputs.is_jules == 'true' && github.event.pull_request.draft
+        == true
+      run: "# Use explicit check to prevent race conditions or failure if already\
+        \ ready\nPR_NUM=${{ github.event.pull_request.number }}\nIS_DRAFT=$(gh pr\
+        \ view $PR_NUM --json isDraft --jq '.isDraft')\nif [ \"$IS_DRAFT\" = \"true\"\
+        \ ]; then\n  gh pr ready $PR_NUM || echo \"Warning: Failed to mark PR as ready.\
+        \ Continuing...\"\nelse\n  echo \"PR #$PR_NUM is already ready.\"\nfi\n"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    timeout-minutes: 30
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read

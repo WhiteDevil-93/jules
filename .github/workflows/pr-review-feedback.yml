@@ -1,54 +1,46 @@
 name: PR Review Feedback to Jules
-
-on:
+true:
   pull_request_review_comment:
-    types: [created]
+    types:
+    - created
   issue_comment:
-    types: [created]
-
+    types:
+    - created
 jobs:
   feedback-to-jules:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Send feedback to Jules
-        uses: actions/github-script@v8
-        with:
-          github-token: ${{ secrets.GH_PAT }}
-          script: |
-            const payload = context.payload;
-            // 修正: issue_commentの場合はpayload.issue.number、reviewの場合はpull_request.number
-            const prNumber = payload.issue ? payload.issue.number : payload.pull_request.number;
-
-            // 修正: PR作成者の取得ロジックをイベントごとに分ける
-            // issue_commentの場合: payload.issue.user
-            // pull_request_review_commentの場合: payload.pull_request.user
-            const prData = payload.issue || payload.pull_request;
-            const prAuthor = prData.user.login;
-
-            const reviewComment = payload.comment.body;
-
-            // Check if PR is created by google-labs-jules
-            if (!prAuthor.toLowerCase().includes('jules')) {
-              console.log('PR not created by google-labs-jules, skipping.');
-              return;
-            }
-
-            // コマンド（/から始まる）や、@から始まるコメント、既にJulesへのメンションがある場合は無視
-            if (reviewComment.trim().startsWith('/') || reviewComment.trim().startsWith('@') || reviewComment.includes('@jules')) {
-               console.log('Skipping command or existing mention.');
-               return;
-            }
-
-            // Quote the review comment and add @jules
-            const feedbackBody = `@jules\n\n> ${reviewComment.replace(/\n/g, '\n> ')}`;
-
-            // Create a new comment on the PR
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: feedbackBody
-            });
-
-            console.log('Feedback sent to Jules.');
+    - name: Send feedback to Jules
+      uses: actions/github-script@v8
+      with:
+        github-token: ${{ secrets.GH_PAT }}
+        script: "const payload = context.payload;\n// \u4FEE\u6B63: issue_comment\u306E\
+          \u5834\u5408\u306Fpayload.issue.number\u3001review\u306E\u5834\u5408\u306F\
+          pull_request.number\nconst prNumber = payload.issue ? payload.issue.number\
+          \ : payload.pull_request.number;\n\n// \u4FEE\u6B63: PR\u4F5C\u6210\u8005\
+          \u306E\u53D6\u5F97\u30ED\u30B8\u30C3\u30AF\u3092\u30A4\u30D9\u30F3\u30C8\
+          \u3054\u3068\u306B\u5206\u3051\u308B\n// issue_comment\u306E\u5834\u5408\
+          : payload.issue.user\n// pull_request_review_comment\u306E\u5834\u5408:\
+          \ payload.pull_request.user\nconst prData = payload.issue || payload.pull_request;\n\
+          const prAuthor = prData.user.login;\n\nconst reviewComment = payload.comment.body;\n\
+          \n// Check if PR is created by google-labs-jules\nif (!prAuthor.toLowerCase().includes('jules'))\
+          \ {\n  console.log('PR not created by google-labs-jules, skipping.');\n\
+          \  return;\n}\n\n// \u30B3\u30DE\u30F3\u30C9\uFF08/\u304B\u3089\u59CB\u307E\
+          \u308B\uFF09\u3084\u3001@\u304B\u3089\u59CB\u307E\u308B\u30B3\u30E1\u30F3\
+          \u30C8\u3001\u65E2\u306BJules\u3078\u306E\u30E1\u30F3\u30B7\u30E7\u30F3\u304C\
+          \u3042\u308B\u5834\u5408\u306F\u7121\u8996\nif (reviewComment.trim().startsWith('/')\
+          \ || reviewComment.trim().startsWith('@') || reviewComment.includes('@jules'))\
+          \ {\n   console.log('Skipping command or existing mention.');\n   return;\n\
+          }\n\n// Quote the review comment and add @jules\nconst feedbackBody = `@jules\\\
+          n\\n> ${reviewComment.replace(/\\n/g, '\\n> ')}`;\n\n// Create a new comment\
+          \ on the PR\nawait github.rest.issues.createComment({\n  owner: context.repo.owner,\n\
+          \  repo: context.repo.repo,\n  issue_number: prNumber,\n  body: feedbackBody\n\
+          });\n\nconsole.log('Feedback sent to Jules.');\n"
+    timeout-minutes: 30
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
