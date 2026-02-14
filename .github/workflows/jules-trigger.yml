@@ -6,12 +6,13 @@ on:
   issue_comment:
     types: [created]
 
-jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+jobs:
   jules-trigger:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       issues: write
     if: github.event.issue.user.login == github.repository_owner

@@ -19,10 +19,11 @@ defaults:
   run:
     shell: "bash"
 
-jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+jobs:
   debugger:
     if: |-
       ${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
