@@ -28,6 +28,10 @@ jobs:
   invoke:
     runs-on: "ubuntu-latest"
     timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: "Checkout repository"
         uses: "actions/checkout@v6"
@@ -35,10 +39,6 @@ jobs:
       - name: "Check GEMINI_API_KEY presence (debug-only)"
         if: ${{ fromJSON(vars.DEBUG || vars.ACTIONS_STEP_DEBUG || false) }}
         env:
-permissions:
-  contents: read
-  issues: read
-  pull-requests: read
           GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}"
         run: |-
           if [ -z "${GEMINI_API_KEY}" ]; then
@@ -51,10 +51,6 @@ permissions:
         uses: "google-github-actions/run-gemini-cli@v0" # ratchet:exclude
         id: "gemini_invoke"
         env:
-permissions:
-  contents: read
-  issues: read
-  pull-requests: read
           GEMINI_API_KEY: "${{ secrets.GEMINI_API_KEY }}"
           ADDITIONAL_CONTEXT: "${{ inputs.additional_context }}"
         with:

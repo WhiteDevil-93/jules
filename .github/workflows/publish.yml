@@ -5,12 +5,17 @@ on:
     tags:
       - "v*-publish"
 
-jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -34,10 +39,6 @@ concurrency:
 
       - name: Publish to Marketplace
         env:
-permissions:
-  contents: read
-  issues: read
-  pull-requests: read
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           npm install -g @vscode/vsce
